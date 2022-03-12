@@ -146,7 +146,8 @@ def get_poverty(force_download: bool = False):
 
 
 # download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "iwildcam")
-# command = f"kaggle competitions download -c iwildcam-2019-fgvc6 -p {download_path}"
+# command =
+# f"kaggle competitions download -c iwildcam-2019-fgvc6 -p {download_path}"
 # command += " --force" if force_download else ""
 
 # subprocess.run("kaggle datasets files iwildcam-2019-fgvc6", shell=True)
