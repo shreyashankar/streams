@@ -26,6 +26,7 @@ setup(
         "matplotlib",
         "numpy",
         "pandas",
+        "pytest",
         "python-dotenv",
         "seaborn",
         "scipy",
