@@ -54,7 +54,7 @@ def create_probabilities(
     gamma: float = 0.5,
     num_peaks: int = 5,
     start_max: int = 10,  # highest value signal can take to start with
-    duration: int = 1,  # how many timesteps each signal value should persist for
+    duration: int = 1,
     log_step: int = 10,
     seed: int = 0,
     periodicity_slack: float = 2,
@@ -127,7 +127,8 @@ def create_probabilities(
         )
 
         # instead of maximizing KL divergence with prev_p (not convex)
-        # we find some entropic distribution p* with which we can minimize KL divergence (convex)
+        # we find some entropic distribution p* with which
+        # we can minimize KL divergence (convex)
         peaks.pop(0)
         peaks.append(np.random.randint(n))
         p_star = np.zeros(prev_p.shape)
@@ -214,7 +215,8 @@ class FullDataset(torch.utils.data.Dataset):
         Args:
             dataset (WildsDataset, Torch dataset, whatever): Dataset to use.
             transform (transforms.transforms, optional): Defaults to None.
-            target_transform (transforms.transforms, optional): Defaults to None.
+            target_transform (transforms.transforms, optional):
+                Defaults to None.
         """
         self.raw_dataset = dataset
         self.transform = transform
