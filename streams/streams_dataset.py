@@ -6,6 +6,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import typing
 
 supported_datasets = name_to_func.keys()
 
@@ -72,7 +73,7 @@ class STREAMSDataset(object):
     def get_data(
         self,
         include_test=False,
-    ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
+    ) -> typing.Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
         train_dataset = torch.utils.data.Subset(
             self.dataset, list(range(self._step))
         )
@@ -91,7 +92,9 @@ class STREAMSDataset(object):
         batch_size: int = 64,
         shuffle: bool = True,
         include_test: bool = False,
-    ) -> tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    ) -> typing.Tuple[
+        torch.utils.data.DataLoader, torch.utils.data.DataLoader
+    ]:
         train_dataset, test_dataset = self.get_data(include_test=include_test)
         train_dl = torch.utils.data.DataLoader(
             train_dataset, batch_size=batch_size, shuffle=shuffle
