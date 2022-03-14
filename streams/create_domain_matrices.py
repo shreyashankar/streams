@@ -149,7 +149,10 @@ def get_poverty(force_download: bool = False):
 
 def get_jeopardy(force_download: bool = False):
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "jeopardy")
-    command = f"kaggle datasets download -d tunguz/200000-jeopardy-questions -p {download_path}"
+    command = (
+        "kaggle datasets download -d "
+        + f"tunguz/200000-jeopardy-questions -p {download_path}"
+    )
     command += " --force" if force_download else ""
 
     subprocess.run(command, shell=True)
