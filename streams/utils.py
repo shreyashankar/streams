@@ -209,19 +209,15 @@ class FullDataset(torch.utils.data.Dataset):
         self,
         dataset,
         transform: transforms.transforms = None,
-        target_transform: transforms.transforms = None,
     ):
         """Creates dataset for Avalanche.
 
         Args:
             dataset (WildsDataset, Torch dataset, whatever): Dataset to use.
             transform (transforms.transforms, optional): Defaults to None.
-            target_transform (transforms.transforms, optional):
-                Defaults to None.
         """
         self.raw_dataset = dataset
         self.transform = transform
-        self.target_transform = target_transform
         self.targets = self.raw_dataset.y_array
 
     def __len__(self):
@@ -231,21 +227,24 @@ class FullDataset(torch.utils.data.Dataset):
         x, y, metadata = self.raw_dataset[idx]
         if self.transform is not None:
             x = self.transform(x)
-        if self.target_transform:
-            y = self.target_transform(y)
         return x, y, metadata
 
 
-class FullData(torch.utils.data.Dataset):
+class SimpleDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         features: list,
         targets: list,
         transform: transforms.transforms = None,
-        target_transform: transforms.transforms = None,
     ):
+        """Pytorch dataset for feature and target tensors.
+
+        Args:
+            features (list): List of features.
+            targets (list): List of targets.
+            transform (transforms.transforms, optional): Defaults to None.
+        """
         self.transform = transform
-        self.target_transform = target_transform
         self.features = features
         self.targets = targets
 
@@ -253,10 +252,48 @@ class FullData(torch.utils.data.Dataset):
         return len(self.features)
 
     def __getitem__(self, idx):
-        x = self.features[idx]
-        y = self.targets[idx]
+        x = torch.Tensor(self.features[idx])
+        y = torch.Tensor(self.targets[idx])
         if self.transform is not None:
             x = self.transform(x)
-        if self.target_transform:
-            y = self.target_transform(y)
+        return x, y
+
+
+class RollingDataFrame(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        feature_cols: typing.List[str],
+        group_col: str,
+        transform: transforms.transforms = None,
+    ):
+        """Pytorch dataset for rolling windows of data.
+
+        Args:
+            df (pd.DataFrame): Dataframe to use.
+            feature_cols (typing.List[str]): List of float-valued columns.
+            group_col (str): Column to group by.
+            transform (transforms.transforms, optional): Defaults to None.
+        """
+        self.transform = transform
+        self.df = df
+        self.feature_cols = feature_cols
+        self.group_col = group_col
+        self.targets = self.df[self.feature_cols].values
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        group_name = self.df.iloc[idx][self.group_col]
+        subset = self.df.head(idx + 1)
+        group_df = subset[subset[self.group_col] == group_name]
+        x = group_df[self.feature_cols].values[:-1, :]
+        y = group_df[self.feature_cols].values[-1]
+
+        x = torch.Tensor(x)
+        y = torch.Tensor(y)
+
+        if self.transform is not None:
+            x = self.transform(x)
         return x, y
