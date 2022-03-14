@@ -200,7 +200,8 @@ def get_air_quality(force_download: bool = False):
     if force_download or not os.path.exists(folder_path):
         logging.info("Downloading air quality data")
         res = requests.get(
-            "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/PRSA2017_Data_20130301-20170228.zip",
+            "https://archive.ics.uci.edu/ml/machine-learning-databases"
+            + "/00501/PRSA2017_Data_20130301-20170228.zip",
             stream=True,
         )
         with zipfile.ZipFile(io.BytesIO(res.content)) as zip_ref:
