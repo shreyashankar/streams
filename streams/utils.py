@@ -5,6 +5,7 @@ from datetime import datetime
 import cvxpy as cp
 import logging
 import numpy as np
+import pandas as pd
 import random
 import torch
 import torchvision.transforms as transforms
@@ -233,3 +234,29 @@ class FullDataset(torch.utils.data.Dataset):
         if self.target_transform:
             y = self.target_transform(y)
         return x, y, metadata
+
+
+class FullData(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        features: list,
+        targets: list,
+        transform: transforms.transforms = None,
+        target_transform: transforms.transforms = None,
+    ):
+        self.transform = transform
+        self.target_transform = target_transform
+        self.features = features
+        self.targets = targets
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        x = self.features[idx]
+        y = self.targets[idx]
+        if self.transform is not None:
+            x = self.transform(x)
+        if self.target_transform:
+            y = self.target_transform(y)
+        return x, y

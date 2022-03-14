@@ -1,9 +1,10 @@
 from dotenv import load_dotenv
 from pathlib import Path
 from torchvision import datasets
-from streams.utils import FullDataset
+from streams.utils import FullDataset, FullData
 from wilds import get_dataset
 
+import logging
 import numpy as np
 import os
 import pandas as pd
@@ -11,6 +12,7 @@ import subprocess
 import torch
 import torchvision.transforms as transforms
 import typing
+import zipfile
 
 load_dotenv()
 DOWNLOAD_PREFIX = (
@@ -145,15 +147,45 @@ def get_poverty(force_download: bool = False):
     return dataset, [urban_matrix, country_matrix]
 
 
-# download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "iwildcam")
-# command =
-# f"kaggle competitions download -c iwildcam-2019-fgvc6 -p {download_path}"
-# command += " --force" if force_download else ""
+def get_jeopardy(force_download: bool = False):
+    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "jeopardy")
+    command = f"kaggle datasets download -d tunguz/200000-jeopardy-questions -p {download_path}"
+    command += " --force" if force_download else ""
 
-# subprocess.run("kaggle datasets files iwildcam-2019-fgvc6", shell=True)
+    subprocess.run(command, shell=True)
 
-# process = subprocess.run(command, shell=True)
-# print("waiting")
+    if not os.path.exists(os.path.join(download_path, "JEOPARDY_CSV.csv")):
+        zip_path = os.path.join(download_path, "200000-jeopardy-questions.zip")
+
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(download_path)
+
+    df = pd.read_csv(os.path.join(download_path, "JEOPARDY_CSV.csv"))
+    df.replace(to_replace="None", value=np.nan, inplace=True)
+    df.rename(
+        {
+            " Value": "Value",
+            " Category": "Category",
+            " Question": "Question",
+            " Answer": "Answer",
+        },
+        axis=1,
+        inplace=True,
+    )
+
+    df = df.dropna(subset=["Value", "Category"])
+
+    df["Category"] = df["Category"].astype(str).str.strip().str.lower()
+    df["Value"] = df["Value"].astype(str).str.strip().str.lower()
+    df["Value"] = (
+        df["Value"].str.replace("$", "").str.replace(",", "").astype(float)
+    )
+
+    value_matrix = pd.get_dummies(df["Value"]).astype(int).values
+    category_matrix = pd.get_dummies(df["Category"]).astype(int).values
+
+    dataset = FullData(df["Question"].values, df["Answer"].values)
+    return dataset, [value_matrix]  # TODO add category matrix
 
 
 name_to_func = {
@@ -161,4 +193,5 @@ name_to_func = {
     "iwildcam": get_iwildcam,
     "civilcomments": get_civil_comments,
     "poverty": get_poverty,
+    "jeopardy": get_jeopardy,
 }
