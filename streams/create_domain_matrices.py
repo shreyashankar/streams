@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from pathlib import Path
 from torchvision import datasets
-from streams.utils import FullDataset, SimpleDataFrame, RollingDataFrame
+from streams.utils import FullDataset, SimpleDataset, RollingDataFrame
 from wilds import get_dataset
 
 import io
@@ -189,7 +189,7 @@ def get_jeopardy(force_download: bool = False):
     value_matrix = pd.get_dummies(df["Value"]).astype(int).values
     category_matrix = pd.get_dummies(df["Category"]).astype(int).values
 
-    dataset = SimpleDataFrame(df["Question"].values, df["Answer"].values)
+    dataset = SimpleDataset(df["Question"].values, df["Answer"].values)
     return dataset, [value_matrix]  # TODO add category matrix
 
 
