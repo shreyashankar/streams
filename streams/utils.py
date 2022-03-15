@@ -265,6 +265,8 @@ class RollingDataFrame(torch.utils.data.Dataset):
         df: pd.DataFrame,
         feature_cols: typing.List[str],
         group_col: str,
+        label_cols: typing.List[str] = None,
+        metadata_cols: typing.List[str] = [],
         transform: transforms.transforms = None,
     ):
         """Pytorch dataset for rolling windows of data.
@@ -273,13 +275,20 @@ class RollingDataFrame(torch.utils.data.Dataset):
             df (pd.DataFrame): Dataframe to use.
             feature_cols (typing.List[str]): List of float-valued columns.
             group_col (str): Column to group by.
+            label_cols (typing.List[str], optional): List of label columns.
+            metadata_cols (typing.List[str], optional): List of
+                gmetadata columns.
             transform (transforms.transforms, optional): Defaults to None.
         """
         self.transform = transform
         self.df = df
         self.feature_cols = feature_cols
         self.group_col = group_col
-        self.targets = self.df[self.feature_cols].values
+        self.label_cols = (
+            label_cols if label_cols is not None else self.feature_cols
+        )
+        self.targets = self.df[self.label_cols].values
+        self.metadata_cols = metadata_cols
 
     def __len__(self):
         return len(self.df)
@@ -289,11 +298,16 @@ class RollingDataFrame(torch.utils.data.Dataset):
         subset = self.df.head(idx + 1)
         group_df = subset[subset[self.group_col] == group_name]
         x = group_df[self.feature_cols].values[:-1, :]
-        y = group_df[self.feature_cols].values[-1]
+        y = group_df[self.label_cols].values[-1]
 
         x = torch.Tensor(x)
         y = torch.Tensor(y)
 
         if self.transform is not None:
             x = self.transform(x)
+
+        if self.metadata_cols:
+            metadata = self.df.iloc[idx][self.metadata_cols].to_dict()
+            return x, y, metadata
+
         return x, y
