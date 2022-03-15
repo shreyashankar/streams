@@ -1,3 +1,4 @@
+from turtle import down
 from dotenv import load_dotenv
 from pathlib import Path
 from torchvision import datasets
@@ -244,6 +245,141 @@ def get_air_quality(force_download: bool = False):
     return dataset, [station_matrix]
 
 
+def get_zillow(force_download: bool = False):
+    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "zillow")
+    file_paths = [
+        os.path.join(download_path, "Metro_mlp_uc_sfrcondo_week.csv"),
+        os.path.join(
+            download_path, "Metro_median_sale_price_uc_sfrcondo_week.csv"
+        ),
+    ]
+
+    if (
+        force_download
+        or not os.path.exists(file_paths[0])
+        or not os.path.exists(file_paths[1])
+    ):
+        logging.info("Downloading Zillow data")
+        list_df = pd.read_csv(
+            "https://files.zillowstatic.com/research/public_csvs"
+            + "/mlp/Metro_mlp_uc_sfrcondo_week.csv"
+        )
+        sale_df = pd.read_csv(
+            "https://files.zillowstatic.com/research/public_csvs/median_sale_price/Metro_median_sale_price_uc_sfrcondo_week.csv"
+        )
+        os.makedirs(download_path, exist_ok=True)
+        list_df.to_csv(file_paths[0], index=False)
+        sale_df.to_csv(file_paths[1], index=False)
+
+    list_df = pd.read_csv(file_paths[0])
+    sale_df = pd.read_csv(file_paths[1])
+
+    # Clean and transform dataframes (unpivot)
+    list_date_cols = list_df.columns.to_list()
+    sale_date_cols = sale_df.columns.to_list()
+    for col in [
+        "RegionID",
+        "SizeRank",
+        "RegionName",
+        "RegionType",
+        "StateName",
+    ]:
+        list_date_cols.remove(col)
+        sale_date_cols.remove(col)
+    list_price_df = list_df.melt(
+        id_vars=["RegionID"],
+        value_vars=list_date_cols,
+        var_name="date",
+        value_name="list_price",
+    )
+    sale_price_df = sale_df.melt(
+        id_vars=["RegionID"],
+        value_vars=sale_date_cols,
+        var_name="date",
+        value_name="sale_price",
+    )
+
+    list_price_df["date"] = pd.to_datetime(list_price_df["date"])
+    sale_price_df["date"] = pd.to_datetime(sale_price_df["date"])
+
+    list_price_df = list_price_df.dropna(subset=["RegionID"])
+    sale_price_df = sale_price_df.dropna(subset=["RegionID"])
+
+    # Resample and forward fill values to merge dfs
+    ffill_lim = 10
+    list_price_df = (
+        list_price_df.groupby("RegionID")
+        .apply(
+            lambda x: x.set_index("date")
+            .sort_values(by="date")
+            .resample("1W")
+            .ffill(limit=ffill_lim)
+            .dropna()
+            .reset_index()
+        )
+        .reset_index(drop=True)
+    )
+    list_price_df["RegionID"] = list_price_df["RegionID"].astype(int)
+
+    sale_price_df = (
+        sale_price_df.groupby("RegionID")
+        .apply(
+            lambda x: x.set_index("date")
+            .sort_values(by="date")
+            .resample("1W")
+            .ffill(limit=ffill_lim)
+            .dropna()
+            .reset_index()
+        )
+        .reset_index(drop=True)
+    )
+    sale_price_df["RegionID"] = sale_price_df["RegionID"].astype(int)
+
+    # Merge dataframes
+    raw_merge = sale_price_df.merge(list_price_df, on=["RegionID"], how="left")
+    merged = raw_merge.loc[raw_merge["date_x"] >= raw_merge["date_y"]]
+    idx = (
+        merged.groupby(["RegionID", "date_x"])["date_y"].transform(max)
+        == merged["date_y"]
+    )
+    merged = merged[idx].reset_index(drop=True)
+    merged.rename(
+        columns={"date_x": "sale_date", "date_y": "list_date"}, inplace=True
+    )
+    metro_matrix = pd.get_dummies(merged["RegionID"]).astype(int).values
+
+    # Create dataset
+    dataset = RollingDataFrame(
+        merged,
+        ["sale_price", "list_price"],
+        "RegionID",
+        label_cols=["sale_price"],
+        metadata_cols=["RegionID", "sale_date"],
+    )
+
+    return dataset, [metro_matrix]
+
+
+def get_coauthor(force_download: bool = False):
+    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "coauthor")
+    folder_path = os.path.join(download_path, "chi2022-coauthor-v1.0")
+
+    if force_download or not os.path.exists(folder_path):
+        logging.info("Downloading CoAuthor data")
+        res = requests.get(
+            "https://cs.stanford.edu/~minalee/zip/chi2022-coauthor-v1.0.zip",
+            stream=True,
+        )
+        with zipfile.ZipFile(io.BytesIO(res.content)) as zip_ref:
+            zip_ref.extractall(download_path)
+
+    session_paths = [
+        os.path.join(folder_path, path)
+        for path in os.listdir(folder_path)
+        if path.endswith("jsonl")
+    ]
+
+
 name_to_func = {
     "mnist": get_mnist,
     "iwildcam": get_iwildcam,
@@ -251,4 +387,6 @@ name_to_func = {
     "poverty": get_poverty,
     "jeopardy": get_jeopardy,
     "air_quality": get_air_quality,
+    "zillow": get_zillow,
+    "coauthor": get_coauthor,
 }
