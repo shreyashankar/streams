@@ -24,7 +24,11 @@ DOWNLOAD_PREFIX = (
 )
 KAGGLE_USERNAME = os.getenv("KAGGLE_USERNAME")
 KAGGLE_KEY = os.getenv("KAGGLE_KEY")
-HOME = str(Path.home())
+HOME = (
+    os.getenv("DOWNLOAD_HOME")
+    if os.getenv("DOWNLOAD_HOME")
+    else str(Path.home())
+)
 
 
 def get_mnist(force_download: bool = False):
