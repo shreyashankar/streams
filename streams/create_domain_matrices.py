@@ -70,7 +70,8 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
     location_idx = raw_dataset.metadata_fields.index("location")
     time_idx = raw_dataset.metadata_fields.index("month")
 
-    # greedily solve partitioning problem so that camera groups are of roughly equal size
+    # greedily solve partitioning problem so that camera groups are
+    # of roughly equal size
     location_count = raw_dataset.metadata_array[:, location_idx].bincount()
     location_group_map = {}
     location_group_sizes = np.zeros(num_location_groups)
@@ -294,7 +295,8 @@ def get_zillow(force_download: bool = False):
             + "/mlp/Metro_mlp_uc_sfrcondo_week.csv"
         )
         sale_df = pd.read_csv(
-            "https://files.zillowstatic.com/research/public_csvs/median_sale_price/Metro_median_sale_price_uc_sfrcondo_week.csv"
+            "https://files.zillowstatic.com/research/public_csvs/"
+            + "median_sale_price/Metro_median_sale_price_uc_sfrcondo_week.csv"
         )
         os.makedirs(download_path, exist_ok=True)
         list_df.to_csv(file_paths[0], index=False)

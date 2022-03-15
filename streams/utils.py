@@ -277,7 +277,7 @@ class RollingDataFrame(torch.utils.data.Dataset):
             group_col (str): Column to group by.
             label_cols (typing.List[str], optional): List of label columns.
             metadata_cols (typing.List[str], optional): List of
-                metadata columns.
+                gmetadata columns.
             transform (transforms.transforms, optional): Defaults to None.
         """
         self.transform = transform
