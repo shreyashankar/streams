@@ -275,6 +275,9 @@ class RollingDataFrame(torch.utils.data.Dataset):
             df (pd.DataFrame): Dataframe to use.
             feature_cols (typing.List[str]): List of float-valued columns.
             group_col (str): Column to group by.
+            label_cols (typing.List[str], optional): List of label columns.
+            metadata_cols (typing.List[str], optional): List of
+                metadata columns.
             transform (transforms.transforms, optional): Defaults to None.
         """
         self.transform = transform

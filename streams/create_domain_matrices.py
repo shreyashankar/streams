@@ -50,7 +50,7 @@ def get_mnist(force_download: bool = False):
 
 def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
     """
-    Retrieve and break down the IWildCam dataset along the time and location 
+    Retrieve and break down the IWildCam dataset along the time and location
     (camera ID) domain types.
 
     Args:
@@ -71,7 +71,7 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
     time_idx = raw_dataset.metadata_fields.index("month")
 
     # greedily solve partitioning problem so that camera groups are of roughly equal size
-    location_count = raw_dataset.metadata_array[:,location_idx].bincount()
+    location_count = raw_dataset.metadata_array[:, location_idx].bincount()
     location_group_map = {}
     location_group_sizes = np.zeros(num_location_groups)
 
@@ -79,14 +79,18 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
     for location in location_count.argsort(descending=True):
         smallest_group_index = location_group_sizes.argmin().item()
         location_group_map[location.item()] = smallest_group_index
-        location_group_sizes[smallest_group_index] += location_count[location].item()
+        location_group_sizes[smallest_group_index] += location_count[
+            location
+        ].item()
 
     location_matrix = np.zeros((len(df), num_location_groups))
     time_matrix = np.zeros((len(df), df.datetime.dt.month.max() + 1))
 
     for idx in range(len(raw_dataset.metadata_array)):
         metadata = raw_dataset.metadata_array[idx]
-        location_matrix[idx][location_group_map[metadata[location_idx].item()]] = 1
+        location_matrix[idx][
+            location_group_map[metadata[location_idx].item()]
+        ] = 1
         time_matrix[idx][metadata[time_idx]] = 1
 
     dataset = FullDataset(
