@@ -24,7 +24,11 @@ DOWNLOAD_PREFIX = (
 )
 KAGGLE_USERNAME = os.getenv("KAGGLE_USERNAME")
 KAGGLE_KEY = os.getenv("KAGGLE_KEY")
-HOME = str(Path.home())
+HOME = (
+    os.getenv("DOWNLOAD_HOME")
+    if os.getenv("DOWNLOAD_HOME")
+    else str(Path.home())
+)
 
 
 def get_mnist(force_download: bool = False):
@@ -43,7 +47,16 @@ def get_mnist(force_download: bool = False):
     return dataset, [domain_matrix]
 
 
-def get_iwildcam(force_download: bool = False):
+def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
+    """
+    Retrieve and break down the IWildCam dataset along the time and location 
+    (camera ID) domain types.
+
+    Args:
+        num_location_groups: how many values there should be for the "location"
+            domain type (e.g., if 10, then allocate the 300+ camera IDs into 10
+            groups)
+    """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(
         dataset="iwildcam", download=True, root_dir=download_path
@@ -53,14 +66,26 @@ def get_iwildcam(force_download: bool = False):
         os.path.join(download_path, "iwildcam_v2.0", "metadata.csv")
     )
     df["datetime"] = pd.to_datetime(df["datetime"])
-    location_matrix = np.zeros((len(df), df.location_remapped.max() + 1))
-    time_matrix = np.zeros((len(df), df.datetime.dt.month.max() + 1))
     location_idx = raw_dataset.metadata_fields.index("location")
     time_idx = raw_dataset.metadata_fields.index("month")
 
+    # greedily solve partitioning problem so that camera groups are of roughly equal size
+    location_count = raw_dataset.metadata_array[:,location_idx].bincount()
+    location_group_map = {}
+    location_group_sizes = np.zeros(num_location_groups)
+
+    # assign camera to smallest camera group (by number of examples)
+    for location in location_count.argsort(descending=True):
+        smallest_group_index = location_group_sizes.argmin().item()
+        location_group_map[location.item()] = smallest_group_index
+        location_group_sizes[smallest_group_index] += location_count[location].item()
+
+    location_matrix = np.zeros((len(df), num_location_groups))
+    time_matrix = np.zeros((len(df), df.datetime.dt.month.max() + 1))
+
     for idx in range(len(raw_dataset.metadata_array)):
         metadata = raw_dataset.metadata_array[idx]
-        location_matrix[idx][metadata[location_idx]] = 1
+        location_matrix[idx][location_group_map[metadata[location_idx].item()]] = 1
         time_matrix[idx][metadata[time_idx]] = 1
 
     dataset = FullDataset(
