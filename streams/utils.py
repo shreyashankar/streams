@@ -420,8 +420,8 @@ def get_completion(text: str, mask: str) -> str:
     """
     if "P" not in mask:
         return text
-    end_index = mask.rindex("P")
-    return text[end_index + 1 :]
+    end_index = mask.rindex("P") + 1
+    return text[end_index:]
 
 
 def get_prompts_and_completions(
