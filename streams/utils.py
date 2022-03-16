@@ -233,29 +233,44 @@ class FullDataset(torch.utils.data.Dataset):
 class SimpleDataset(torch.utils.data.Dataset):
     def __init__(
         self,
-        features: list,
-        targets: list,
+        df: pd.DataFrame,
+        feature_cols: typing.List[str],
+        label_cols: typing.List[str],
+        metadata_cols: typing.List[str] = [],
         transform: transforms.transforms = None,
     ):
         """Pytorch dataset for feature and target tensors.
 
         Args:
-            features (list): List of features.
-            targets (list): List of targets.
+            df (pd.DataFrame): Dataframe to use.
+            feature_cols (typing.List[str]): List of float-valued columns.
+            label_cols (typing.List[str], optional): List of label columns.
+            metadata_cols (typing.List[str], optional): List of
+                gmetadata columns.
             transform (transforms.transforms, optional): Defaults to None.
         """
         self.transform = transform
-        self.features = features
-        self.targets = targets
+        self.df = df
+        self.feature_cols = feature_cols
+        self.label_cols = (
+            label_cols if label_cols is not None else self.feature_cols
+        )
+        self.targets = self.df[self.label_cols].values
+        self.metadata_cols = metadata_cols
 
     def __len__(self):
         return len(self.features)
 
     def __getitem__(self, idx):
-        x = torch.Tensor(self.features[idx])
-        y = torch.Tensor(self.targets[idx])
+        x = self.df.iloc[idx][self.feature_cols].values
+        y = self.targets[idx]
         if self.transform is not None:
             x = self.transform(x)
+
+        if self.metadata_cols:
+            metadata = self.df.iloc[idx][self.metadata_cols].to_dict()
+            return x, y, metadata
+
         return x, y
 
 
@@ -311,3 +326,153 @@ class RollingDataFrame(torch.utils.data.Dataset):
             return x, y, metadata
 
         return x, y
+
+
+### UTILITY FUNCTIONS FOR COAUTHOR ###
+
+
+def apply_ops(
+    doc: str, mask: str, ops: list, source: str
+) -> typing.Tuple[str, str]:
+    """Applies quilljs operations on a string. Taken
+    from the CoAuthor website.
+
+    Args:
+        doc (str): Text so far (input document).
+        mask (str): Character mask describing inputs.
+        ops (list): List of JSON from quilljs.
+        source (str): API or user.
+
+    Returns:
+        typing.Tuple[str, str]: Final string and mask after ops.
+    """
+    original_doc = doc
+    original_mask = mask
+
+    new_doc = ""
+    new_mask = ""
+    for i, op in enumerate(ops):
+
+        # Handle retain operation
+        if "retain" in op:
+            num_char = op["retain"]
+
+            retain_doc = original_doc[:num_char]
+            retain_mask = original_mask[:num_char]
+
+            original_doc = original_doc[num_char:]
+            original_mask = original_mask[num_char:]
+
+            new_doc = new_doc + retain_doc
+            new_mask = new_mask + retain_mask
+
+        # Handle insert operation
+        elif "insert" in op:
+            insert_doc = op["insert"]
+
+            insert_mask = "U" * len(insert_doc)  # User
+            if source == "api":
+                insert_mask = "A" * len(insert_doc)  # API
+
+            if isinstance(insert_doc, dict):
+                if "image" in insert_doc:
+                    logging.info("Skipping invalid object insertion (image)")
+                else:
+                    logging.info("Ignore invalid insertions:", op)
+                    # Ignore other invalid insertions
+                    # Debug if necessary
+                    pass
+            else:
+                new_doc = new_doc + insert_doc
+                new_mask = new_mask + insert_mask
+
+        # Handle delete operation
+        elif "delete" in op:
+            num_char = op["delete"]
+
+            if original_doc:
+                original_doc = original_doc[num_char:]
+                original_mask = original_mask[num_char:]
+            else:
+                new_doc = new_doc[:-num_char]
+                new_mask = new_mask[:-num_char]
+
+        else:
+            # Ignore other operations
+            # Debug if necessary
+            logging.info("Ignore other operations:", op)
+            pass
+
+    final_doc = new_doc + original_doc
+    final_mask = new_mask + original_mask
+    return final_doc, final_mask
+
+
+def get_completion(text: str, mask: str) -> str:
+    """Removes prompt from text.
+
+    Args:
+        text (str): Text generated so far.
+        mask (str): Mask describing prompt or completion.
+
+    Returns:
+        str: text without prompt.
+    """
+    if "P" not in mask:
+        return text
+    end_index = mask.rindex("P")
+    return text[end_index + 1 :]
+
+
+def get_prompts_and_completions(
+    events: list, session_id: str, stride: int = 10
+) -> pd.DataFrame:
+    """For a session, returns a dataframe of prompts and completions.
+    Every row in the dataframe represents a snapshot of the session
+    taken every stride steps.
+
+    Args:
+        events (list): List of quilljs events for a session.
+        session_id (str): Session ID.
+        stride (int, optional): Snapshot time. Defaults to 10.
+
+    Returns:
+        pd.DataFrame: Prompts and completions for a session.
+    """
+    prompt = events[0]["currentDoc"].strip()
+
+    text = prompt
+    mask = "P" * len(prompt)  # Prompt
+
+    texts = []
+    timestamps = []
+    first = True
+    for i, event in enumerate(events):
+        if "ops" not in event["textDelta"]:
+            continue
+        ops = event["textDelta"]["ops"]
+        source = event["eventSource"]
+        text, mask = apply_ops(text, mask, ops, source)
+        if first and list(ops[-1].keys())[0] in ["insert", "delete"]:
+            texts.append(get_completion(text, mask))
+            timestamps.append(event["eventTimestamp"])
+            first = False
+
+        elif i % stride == 0:
+            texts.append(get_completion(text, mask))
+            timestamps.append(event["eventTimestamp"])
+            first = False
+
+    final_completion = get_completion(text, mask)
+    df = pd.DataFrame(
+        {
+            "session_id": session_id.split(".")[0],
+            "timestamp": timestamps,
+            "prompt": prompt,
+            "current": texts,
+            "final": final_completion,
+        }
+    )
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", origin="unix")
+
+    return df
