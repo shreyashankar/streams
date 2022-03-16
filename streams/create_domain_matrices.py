@@ -1,11 +1,16 @@
-from turtle import down
 from dotenv import load_dotenv
 from pathlib import Path
 from torchvision import datasets
-from streams.utils import FullDataset, SimpleDataset, RollingDataFrame
+from streams.utils import (
+    FullDataset,
+    SimpleDataset,
+    RollingDataFrame,
+    get_prompts_and_completions,
+)
 from wilds import get_dataset
 
 import io
+import json
 import logging
 import numpy as np
 import os
@@ -220,7 +225,9 @@ def get_jeopardy(force_download: bool = False):
     value_matrix = pd.get_dummies(df["Value"]).astype(int).values
     category_matrix = pd.get_dummies(df["Category"]).astype(int).values
 
-    dataset = SimpleDataset(df["Question"].values, df["Answer"].values)
+    dataset = SimpleDataset(
+        df, feature_cols=["Question"], label_cols=["Answer"]
+    )
     return dataset, [value_matrix]  # TODO add category matrix
 
 
@@ -393,7 +400,7 @@ def get_zillow(force_download: bool = False):
 
 def get_coauthor(force_download: bool = False):
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "coauthor")
-    folder_path = os.path.join(download_path, "chi2022-coauthor-v1.0")
+    folder_path = os.path.join(download_path, "coauthor-v1.0")
 
     if force_download or not os.path.exists(folder_path):
         logging.info("Downloading CoAuthor data")
@@ -409,6 +416,60 @@ def get_coauthor(force_download: bool = False):
         for path in os.listdir(folder_path)
         if path.endswith("jsonl")
     ]
+    events = [
+        [json.loads(event) for event in open(path, "r")]
+        for path in session_paths
+    ]
+
+    dfs = []
+    for i, path in enumerate(os.listdir(folder_path)):
+        dfs.append(get_prompts_and_completions(events[i], session_id=path))
+
+    df = pd.concat(dfs).reset_index(drop=True)
+
+    # Read metadata files for domain values
+    def build_sheet_url(doc_id, sheet_id):
+        return (
+            f"https://docs.google.com/spreadsheets/d/{doc_id}"
+            + f"/export?format=csv&gid={sheet_id}"
+        )
+
+    doc_id = "1O3EXJm52TQHfFSbzVGZmNIzzdu5ow6IjnOBrGTUY02o"
+    creative_sheet_id = "1870708729"
+    argumentative_sheet_id = "320516663"
+
+    creative_metadata = pd.read_csv(build_sheet_url(doc_id, creative_sheet_id))
+    argumentative_metadata = pd.read_csv(
+        build_sheet_url(doc_id, argumentative_sheet_id)
+    )
+
+    # Make sure metadata files are well-formed
+    assert creative_metadata["session_id"].nunique() == len(creative_metadata)
+    assert argumentative_metadata["session_id"].nunique() == len(
+        argumentative_metadata
+    )
+    metadata = pd.concat(
+        [
+            creative_metadata[["worker_id", "session_id", "prompt_code"]],
+            argumentative_metadata[["worker_id", "session_id", "prompt_code"]],
+        ]
+    ).reset_index(drop=True)
+    assert metadata["session_id"].nunique() == len(metadata)
+
+    # Merge metadata and df to create domain matrices
+    full_df = df.merge(metadata, on="session_id", how="left")
+    worker_matrix = pd.get_dummies(full_df["worker_id"]).astype(int).values
+    prompt_matrix = pd.get_dummies(full_df["prompt_code"]).astype(int).values
+
+    # Create dataset
+    dataset = SimpleDataset(
+        full_df,
+        feature_cols=["prompt", "current"],
+        label_cols=["final"],
+        metadata_cols=["worker_id", "prompt_code"],
+    )
+
+    return dataset, [worker_matrix, prompt_matrix]
 
 
 name_to_func = {
