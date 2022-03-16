@@ -328,7 +328,7 @@ class RollingDataFrame(torch.utils.data.Dataset):
         return x, y
 
 
-### UTILITY FUNCTIONS FOR COAUTHOR ###
+# UTILITY FUNCTIONS FOR COAUTHOR
 
 
 def apply_ops(
