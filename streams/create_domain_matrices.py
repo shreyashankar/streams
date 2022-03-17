@@ -581,7 +581,9 @@ def get_voxceleb(force_download: bool = False):
     pass
 
 
-def get_test() -> typing.Tuple[
+def get_test(
+    force_download=False,
+) -> typing.Tuple[
     torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
 ]:
     """Testing utility function. Creates a fake dataset.
