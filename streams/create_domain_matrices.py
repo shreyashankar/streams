@@ -45,7 +45,7 @@ def get_mnist(force_download: bool = False):
     for idx, elem in enumerate(dataset):
         domain_matrix[idx][elem[1]] = 1
 
-    return dataset, [domain_matrix]
+    return dataset, [domain_matrix], None
 
 
 def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
@@ -57,6 +57,11 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
         num_location_groups: how many values there should be for the "location"
             domain type (e.g., if 10, then allocate the 300+ camera IDs into 10
             groups)
+
+    Returns:
+        dataset: utils.FullDataset
+        domain_matrices: list of np.ndarray
+        time_periods: np.ndarray (or None, if time is not a domain)
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(
@@ -68,7 +73,6 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
     )
     df["datetime"] = pd.to_datetime(df["datetime"])
     location_idx = raw_dataset.metadata_fields.index("location")
-    time_idx = raw_dataset.metadata_fields.index("month")
 
     # greedily solve partitioning problem so that camera groups are
     # of roughly equal size
@@ -85,14 +89,12 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
         ].item()
 
     location_matrix = np.zeros((len(df), num_location_groups))
-    time_matrix = np.zeros((len(df), df.datetime.dt.month.max() + 1))
 
     for idx in range(len(raw_dataset.metadata_array)):
         metadata = raw_dataset.metadata_array[idx]
         location_matrix[idx][
             location_group_map[metadata[location_idx].item()]
         ] = 1
-        time_matrix[idx][metadata[time_idx]] = 1
 
     dataset = FullDataset(
         raw_dataset,
@@ -101,7 +103,10 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
         ),
     )
 
-    return dataset, [location_matrix, time_matrix]
+    time_idx = raw_dataset.metadata_fields.index("month")
+    time_periods = raw_dataset.metadata_array[:,time_idx].numpy()
+
+    return dataset, [location_matrix], time_periods
 
 
 def get_civil_comments(force_download: bool = False):
@@ -161,7 +166,7 @@ def get_civil_comments(force_download: bool = False):
 
     dataset = FullDataset(raw_dataset)
 
-    return dataset, matrices
+    return dataset, matrices, None
 
 
 def get_poverty(force_download: bool = False):
@@ -177,7 +182,7 @@ def get_poverty(force_download: bool = False):
     country_matrix = pd.get_dummies(df.country).astype(int).values
     dataset = FullDataset(raw_dataset)
 
-    return dataset, [urban_matrix, country_matrix]
+    return dataset, [urban_matrix, country_matrix], None
 
 
 def get_jeopardy(force_download: bool = False):
@@ -221,7 +226,7 @@ def get_jeopardy(force_download: bool = False):
     category_matrix = pd.get_dummies(df["Category"]).astype(int).values
 
     dataset = SimpleDataset(df["Question"].values, df["Answer"].values)
-    return dataset, [value_matrix]  # TODO add category matrix
+    return dataset, [value_matrix], None  # TODO add category matrix
 
 
 def get_air_quality(force_download: bool = False):
@@ -272,7 +277,7 @@ def get_air_quality(force_download: bool = False):
         "WSPM",
     ]
     dataset = RollingDataFrame(df, sensor_cols, "station")
-    return dataset, [station_matrix]
+    return dataset, [station_matrix], None
 
 
 def get_zillow(force_download: bool = False):
@@ -388,7 +393,7 @@ def get_zillow(force_download: bool = False):
         metadata_cols=["RegionID", "sale_date"],
     )
 
-    return dataset, [metro_matrix]
+    return dataset, [metro_matrix], None
 
 
 def get_coauthor(force_download: bool = False):
