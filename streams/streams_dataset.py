@@ -103,8 +103,6 @@ class STREAMSDataset(object):
                     (time_periods <= current_time_period).astype(int)
                 ).astype(bool)
 
-                print(t, current_time_period, eligible.sum())
-
                 if eligible.sum() > 0:
                     logits = self.sampling_logits[t].copy()
                     logits[~eligible] = -np.inf
