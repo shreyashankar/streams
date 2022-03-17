@@ -59,7 +59,7 @@ def create_logits(
     log_step: int = 10,
     seed: int = 0,
 ) -> typing.Tuple[typing.List[np.ndarray], typing.List[np.ndarray]]:
-    """Creates probability and signals for T steps based on domain matrices.
+    """Creates logits and signals for T steps based on domain matrices.
 
     Args:
         domain_matrices (typing.List[np.ndarray]): List of domain matrices.
@@ -71,7 +71,7 @@ def create_logits(
 
     Returns:
         typing.Tuple[typing.List[np.ndarray], typing.List[np.ndarray]]:
-            List of probability vectors, list of signals
+            List of logits vectors, list of signals
     """
     n = domain_matrices[0].shape[0]
     m = len(domain_matrices)

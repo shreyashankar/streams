@@ -16,21 +16,42 @@ class STREAMSDataset(object):
         self,
         name: str,
         T: int = None,
+        inference_window: int = 1,
         seed: int = 42,
         force_download: bool = False,
         n_t: typing.List = [],
         **kwargs,
     ) -> None:
+        """Constructor for STREAMSDataset.
+
+        Args:
+            name (str): Name of the dataset. Must be in our supported datasets.
+            T (int, optional): How many time steps in the stream. Defaults to
+                length of dataset.
+            inference_window (int, optional): Number of timesteps after current time
+                step that can be used for "testing." Defaults to 1.
+            seed (int, optional): Random seed. Defaults to 42.
+            force_download (bool, optional): Whether to forcibly redownload the
+                dataset. Defaults to False.
+
+        Raises:
+            ValueError: If dataset is not in supported datasets.
+        """
         if name not in supported_datasets:
             raise ValueError(f"Dataset {name} is not supported")
 
         self._name = name  # TODO(shreyashankar): make properties
         self._T = T
+        self._inference_window = inference_window
         self._seed = seed
         logging.info(f"Creating dataset {name}")
         self.dataset, self.domain_matrices, self.time_periods = name_to_func[self._name](
             force_download
         )
+        self._n = self.domain_matrices[0].shape[0]
+
+        if self._n < self._T:
+            raise ValueError("more timesteps than examples in dataset")
 
         self.time_periods = None
 
@@ -41,10 +62,10 @@ class STREAMSDataset(object):
             T=len(self.dataset) if T is None else T,
             **kwargs,
         )
-        self.num_examples = len(self.sampling_logits[0])
 
         # Create samples
         self.sample_history = self._sample_without_replacement(n_t=n_t)
+        self.num_examples = sum([ len(x) for x in self.sample_history ]) # could be less than self._n
 
         self.reset()
 
@@ -64,10 +85,11 @@ class STREAMSDataset(object):
             List of samples for timesteps 1 .. T.
         """
         if n_t == []:
-            n_t = [ int(self.num_examples / self._T) ] * self._T
+            n_t = [ int(self._n / self._T) ] * self._T
+            n_t[0] += self._n - sum(n_t)
 
-        time_periods = self.time_periods if (self.time_periods is not None) else np.zeros(self.num_examples)
-        remaining = np.ones(self.num_examples)
+        time_periods = self.time_periods if (self.time_periods is not None) else np.zeros(self._n)
+        remaining = np.ones(self._n)
         current_time_period = 0
         sample_history = []
 
@@ -89,7 +111,7 @@ class STREAMSDataset(object):
                     probs = softmax(logits)
 
                     sample.extend(np.random.choice(
-                        self.num_examples,
+                        self._n,
                         p=probs,
                         replace=False,
                         size=min(eligible.sum(), goal - len(sample))
@@ -123,23 +145,31 @@ class STREAMSDataset(object):
         return self._seed
 
     def reset(self) -> None:
+        """Sets current time step back to 0."""
         self._step = 0
 
     def get_data(
         self,
         include_test=False,
     ) -> typing.Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
-        train_dataset = torch.utils.data.Subset(
-            self.dataset,
-            self.sample_history[self._step]
-        )
+        """Returns data in the current step.
+
+        Args:
+            include_test (bool, optional): Whether to include inference data.
+                Defaults to False.
+
+        Returns:
+            typing.Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
+                "Train" and test datasets.
+        """
+        train_dataset = self.get([self._step])
         if not include_test:
             return train_dataset, None
 
         # Include test data
-        test_dataset = torch.utils.data.Subset(
-            self.dataset,
-            self.sample_history[self._step + 1]
+        test_dataset = self.get(
+            list(range(self._step + 1, self._step + 1 + self._inference_window)),
+            future_ok=True,
         )
         return train_dataset, test_dataset
 
@@ -151,6 +181,19 @@ class STREAMSDataset(object):
     ) -> typing.Tuple[
         torch.utils.data.DataLoader, torch.utils.data.DataLoader
     ]:
+        """Dataloader wrapper around get_data.
+
+        Args:
+            batch_size (int, optional): Defaults to 64.
+            shuffle (bool, optional): Defaults to True.
+            include_test (bool, optional): Whether to include inference data.
+                Defaults to False.
+
+        Returns:
+            typing.Tuple[ torch.utils.data.DataLoader,
+                torch.utils.data.DataLoader ]: Dataloaders wrapped around the
+                datasets from get_data.
+        """
         train_dataset, test_dataset = self.get_data(include_test=include_test)
         train_dl = torch.utils.data.DataLoader(
             train_dataset, batch_size=batch_size, shuffle=shuffle
@@ -166,6 +209,7 @@ class STREAMSDataset(object):
     def get_benchmark(
         self,
     ) -> avalanche.benchmarks.scenarios.new_instances.ni_scenario.NIScenario:
+        """Gets data until current step as avalanche benchmark."""
         _, test_dataset = self.get_data(include_test=True)
         exp_assignment = [list(range(self._step))]
         benchmark = avalanche.benchmarks.generators.ni_benchmark(
@@ -178,15 +222,32 @@ class STREAMSDataset(object):
         return benchmark
 
     def advance(self, step_size: int = 1) -> None:
-        # TODO(shreyashankar): think about edge cases here
-        if self._step + 1 == self._T - 1: # last timestep can't be used for training
-            raise IOError("reached end of data stream")
+        """Advances the current timestep by step_size.
 
-        self._step += 1
+        Args:
+            step_size (int, optional): Defaults to 1.
+
+        Raises:
+            ValueError: If step_size is negative or outside dataset length.
+        """
+        if step_size < 1:
+            raise ValueError("step_size must be at least 1")
+
+        if self._step + step_size > self._T - 1 - self._inference_window: # last timestep can't be used for training
+            raise ValueError("reached end of data stream")
+
+        self._step += step_size
+        logging.info(f"Advanced {step_size} steps.")
 
     def visualize(
         self, domain_type_index: int = 0, domain_value_indices: list = None
     ) -> None:
+        """Returns plot of signals for domain index and values.
+
+        Args:
+            domain_type_index (int, optional):Defaults to 0.
+            domain_value_indices (list, optional): Defaults to None.
+        """
         if domain_value_indices is None:
             domain_value_indices = list(
                 range(self.domain_matrices[domain_type_index].shape[1])
@@ -196,12 +257,45 @@ class STREAMSDataset(object):
             y = [self.signals[t][domain_type_index][i] for t in x]
             plt.plot(x, y, label=f"Value {i}")
 
-        # plt.ylim([-1, 10])
         plt.title(f"Domain {domain_type_index}")
         plt.rcParams["figure.figsize"] = (10, 4)
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
         plt.show()
 
-    def __getitem__(self, t) -> torch.utils.data.Dataset:
-        # examples in the same timestep do not have a particular order
-        return torch.utils.data.Subset(self.dataset, self.sample_history[t])
+    def get(
+        self, step_indices: typing.List[int], future_ok: bool = False
+    ) -> torch.utils.data.Dataset:
+        """Gets data for given indices. Reads into permutation and then
+        accesses the data.
+
+        Args:
+            step_indices (typing.List[int]): Indices to get data for.
+            future_ok (bool, optional): Whether it's ok to get data after
+                current step. Defaults to False.
+
+        Raises:
+            ValueError: If indices are beyond current step.
+
+        Returns:
+            torch.utils.data.Dataset
+        """
+        if not future_ok:
+            for index in step_indices:
+                if index > self._step:
+                    raise ValueError(
+                        f"Cannot sample index {index} from future when"
+                        + f" the current step is {self._step}."
+                    )
+
+        data_indices = [ i for t in step_indices for i in self.sample_history[t] ]
+        return torch.utils.data.Subset(self.dataset, data_indices)
+
+    def __len__(self) -> int:
+        """Gets length of dataset."""
+        return len(self.sample_history)
+
+    def __getitem__(
+        self, step_indices: typing.List[int]
+    ) -> torch.utils.data.Dataset:
+        """Accesses data for given indices. Wraps get."""
+        return self.get(step_indices, future_ok=False)
