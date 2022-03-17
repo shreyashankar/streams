@@ -19,7 +19,7 @@ class STREAMSDataset(object):
         inference_window: int = 1,
         seed: int = 42,
         force_download: bool = False,
-        n_t: typing.List = [],
+        n_t: typing.List[int] = [],
         **kwargs,
     ) -> None:
         """Constructor for STREAMSDataset.
@@ -33,6 +33,8 @@ class STREAMSDataset(object):
             seed (int, optional): Random seed. Defaults to 42.
             force_download (bool, optional): Whether to forcibly redownload the
                 dataset. Defaults to False.
+            n_t (typing.List[int], optional): T-sized list with number of
+                examples to be sampled for each timestep.
 
         Raises:
             ValueError: If dataset is not in supported datasets.
@@ -45,13 +47,13 @@ class STREAMSDataset(object):
         self._inference_window = inference_window
         self._seed = seed
         logging.info(f"Creating dataset {name}")
-        self.dataset, self.domain_matrices, self.time_periods = name_to_func[self._name](
-            force_download
-        )
+        self.dataset, self.domain_matrices, self.time_periods = name_to_func[
+            self._name
+        ](force_download)
         self._n = self.domain_matrices[0].shape[0]
 
         if self._n < self._T:
-            raise ValueError("more timesteps than examples in dataset")
+            raise ValueError("More timesteps than examples in dataset")
 
         self.time_periods = None
 
@@ -65,17 +67,21 @@ class STREAMSDataset(object):
 
         # Create samples
         self.sample_history = self._sample_without_replacement(n_t=n_t)
-        self.num_examples = sum([ len(x) for x in self.sample_history ]) # could be less than self._n
+        self.num_examples = sum(
+            [len(x) for x in self.sample_history]
+        )  # could be less than self._n
 
         self.reset()
 
-    def _sample_without_replacement(self, n_t: typing.List=[]) -> typing.List[np.ndarray]:
+    def _sample_without_replacement(
+        self, n_t: typing.List[int] = []
+    ) -> typing.List[np.ndarray]:
         """For each 1..T time steps, draw a sample based on the corresponding
         probability distribution (without replacement). By default, any example
-        can appear in any timestep. However, if time periods are specified (where
-        lower-indexed time periods must appear earlier), then restrict when an 
-        example can be sampled (e.g., all those appearing in time period 0 must be
-        sample before any in time period 1).
+        can appear in any timestep. However, if time periods are specified
+        (where lower-indexed time periods must appear earlier), then restrict
+        when an example can be sampled (e.g., all those appearing in time
+        period 0 must be sample before any in time period 1).
 
         Args:
             n_t (optional): T-sized list with number of examples to be sampled
@@ -85,10 +91,14 @@ class STREAMSDataset(object):
             List of samples for timesteps 1 .. T.
         """
         if n_t == []:
-            n_t = [ int(self._n / self._T) ] * self._T
+            n_t = [int(self._n / self._T)] * self._T
             n_t[0] += self._n - sum(n_t)
 
-        time_periods = self.time_periods if (self.time_periods is not None) else np.zeros(self._n)
+        time_periods = (
+            self.time_periods
+            if (self.time_periods is not None)
+            else np.zeros(self._n)
+        )
         remaining = np.ones(self._n)
         current_time_period = 0
         sample_history = []
@@ -100,7 +110,7 @@ class STREAMSDataset(object):
             while len(sample) < goal:
                 eligible = np.multiply(
                     remaining,
-                    (time_periods <= current_time_period).astype(int)
+                    (time_periods <= current_time_period).astype(int),
                 ).astype(bool)
 
                 if eligible.sum() > 0:
@@ -108,12 +118,14 @@ class STREAMSDataset(object):
                     logits[~eligible] = -np.inf
                     probs = softmax(logits)
 
-                    sample.extend(np.random.choice(
-                        self._n,
-                        p=probs,
-                        replace=False,
-                        size=min(eligible.sum(), goal - len(sample))
-                    ).tolist())
+                    sample.extend(
+                        np.random.choice(
+                            self._n,
+                            p=probs,
+                            replace=False,
+                            size=min(eligible.sum(), goal - len(sample)),
+                        ).tolist()
+                    )
 
                     remaining[sample] = 0
 
@@ -166,7 +178,9 @@ class STREAMSDataset(object):
 
         # Include test data
         test_dataset = self.get(
-            list(range(self._step + 1, self._step + 1 + self._inference_window)),
+            list(
+                range(self._step + 1, self._step + 1 + self._inference_window)
+            ),
             future_ok=True,
         )
         return train_dataset, test_dataset
@@ -231,7 +245,9 @@ class STREAMSDataset(object):
         if step_size < 1:
             raise ValueError("step_size must be at least 1")
 
-        if self._step + step_size > self._T - 1 - self._inference_window: # last timestep can't be used for training
+        if (
+            self._step + step_size > self._T - 1 - self._inference_window
+        ):  # last timestep can't be used for training
             raise ValueError("reached end of data stream")
 
         self._step += step_size
@@ -285,7 +301,9 @@ class STREAMSDataset(object):
                         + f" the current step is {self._step}."
                     )
 
-        data_indices = [ i for t in step_indices for i in self.sample_history[t] ]
+        data_indices = [
+            i for t in step_indices for i in self.sample_history[t]
+        ]
         return torch.utils.data.Subset(self.dataset, data_indices)
 
     def __len__(self) -> int:

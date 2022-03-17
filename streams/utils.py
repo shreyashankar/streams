@@ -84,9 +84,7 @@ def create_logits(
 
     # signals in first period all set to same value for each domain type
     prev_s_vectors = [
-        [start_max / mat.shape[1]]
-        * mat.shape[1] 
-        for mat in domain_matrices
+        [start_max / mat.shape[1]] * mat.shape[1] for mat in domain_matrices
     ]
 
     prev_z = aggregate_min(
@@ -151,10 +149,7 @@ def create_logits(
 
         nonnegativity_constraints = [s_vectors[i] >= 0 for i in range(m)]
 
-        all_constraints = (
-            smoothness_constraints
-            + nonnegativity_constraints
-        )
+        all_constraints = smoothness_constraints + nonnegativity_constraints
 
         # Solve the problem
         prob = cp.Problem(obj, all_constraints)

@@ -57,7 +57,14 @@ class TestDataset(unittest.TestCase):
 
         train_data, test_data = ds.get_data(include_test=True)
         self.assertTrue((train_data[0][0] == ds.get([ds.step])[0][0]).all())
-        self.assertTrue((test_data[0][0] == ds.get([ds.step + self.inference_window], future_ok=True)[0][0]).all())
+        self.assertTrue(
+            (
+                test_data[0][0]
+                == ds.get([ds.step + self.inference_window], future_ok=True)[
+                    0
+                ][0]
+            ).all()
+        )
 
     def testGet(self) -> None:
         ds = STREAMSDataset(
@@ -77,5 +84,5 @@ class TestDataset(unittest.TestCase):
         ds.get([5])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
