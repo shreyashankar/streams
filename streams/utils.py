@@ -109,7 +109,7 @@ def create_probabilities(
     duration_counter = 0
 
     # Iterate
-    for t in range(1, T + 1, duration):
+    for t in range(1, T, duration):
         c = np.ones(n)  # TODO(shreyashankar): change this when we do groups
         s_vectors = [cp.Variable(mat.shape[1]) for mat in domain_matrices]
 

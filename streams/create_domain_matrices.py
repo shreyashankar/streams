@@ -472,13 +472,31 @@ def get_coauthor(force_download: bool = False):
     return dataset, [worker_matrix, prompt_matrix]
 
 
+def get_voxceleb(force_download: bool = False):
+    pass
+
+
+def get_test(force_download: bool = False):
+    df = pd.DataFrame(
+        {"feat1": [1, 2, 3], "feat2": [4, 5, 6], "label": [1, 1, 1]}
+    )
+
+    matrix = pd.get_dummies(df["feat1"]).astype(int).values
+    dataset = SimpleDataset(
+        df, feature_cols=["feat1", "feat2"], label_cols=["label"]
+    )
+
+    return dataset, [matrix]
+
+
 name_to_func = {
     "mnist": get_mnist,
     "iwildcam": get_iwildcam,
     "civilcomments": get_civil_comments,
     "poverty": get_poverty,
     "jeopardy": get_jeopardy,
-    "air_quality": get_air_quality,
+    "airquality": get_air_quality,
     "zillow": get_zillow,
     "coauthor": get_coauthor,
+    "test": get_test,
 }
