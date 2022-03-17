@@ -28,8 +28,8 @@ class STREAMSDataset(object):
             name (str): Name of the dataset. Must be in our supported datasets.
             T (int, optional): How many time steps in the stream. Defaults to
                 length of dataset.
-            inference_window (int, optional): Number of timesteps after current time
-                step that can be used for "testing." Defaults to 1.
+            inference_window (int, optional): Number of timesteps after current
+                time step that can be used for "testing." Defaults to 1.
             seed (int, optional): Random seed. Defaults to 42.
             force_download (bool, optional): Whether to forcibly redownload the
                 dataset. Defaults to False.

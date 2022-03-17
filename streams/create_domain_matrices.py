@@ -130,7 +130,8 @@ def get_civil_comments(
         force_download (bool, optional): Defaults to False.
 
     Returns:
-        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
             (if time is a domain)
     """
@@ -205,7 +206,8 @@ def get_poverty(
         force_download (bool, optional): Defaults to False.
 
     Returns:
-        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
             (if time is a domain)
     """
@@ -236,7 +238,8 @@ def get_jeopardy(
         force_download (bool, optional): Defaults to False.
 
     Returns:
-        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
             (if time is a domain)
     """
@@ -297,7 +300,8 @@ def get_air_quality(
         force_download (bool, optional): Defaults to False.
 
     Returns:
-        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
             (if time is a domain)
     """
@@ -363,7 +367,8 @@ def get_zillow(
         force_download (bool, optional): Defaults to False.
 
     Returns:
-        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
             (if time is a domain)
     """
@@ -494,7 +499,8 @@ def get_coauthor(
         force_download (bool, optional): Defaults to False.
 
     Returns:
-        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
             (if time is a domain)
     """
@@ -581,7 +587,8 @@ def get_test() -> typing.Tuple[
     """Testing utility function. Creates a fake dataset.
 
     Returns:
-        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
             (if time is a domain)
     """
