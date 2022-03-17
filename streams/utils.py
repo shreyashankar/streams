@@ -49,7 +49,7 @@ def softmax(x: np.ndarray) -> np.ndarray:
     return e_x / e_x.sum(axis=0)
 
 
-def create_probabilities(
+def create_logits(
     domain_matrices: typing.List[np.ndarray],
     T: int,
     gamma: float = 0.5,
@@ -58,14 +58,8 @@ def create_probabilities(
     duration: int = 1,
     log_step: int = 10,
     seed: int = 0,
-    periodicity_slack: float = 2,
-    periodicity: typing.List[
-        typing.Tuple[
-            int, int
-        ]  # change this param to how many cycles istead of period
-    ] = [],  # tuple of domains and periods
 ) -> typing.Tuple[typing.List[np.ndarray], typing.List[np.ndarray]]:
-    """Creates probability and signals for T steps based on domain matrices.
+    """Creates logits and signals for T steps based on domain matrices.
 
     Args:
         domain_matrices (typing.List[np.ndarray]): List of domain matrices.
@@ -74,28 +68,25 @@ def create_probabilities(
         num_peaks (int, optional): Defaults to 5.
         start_max (int, optional): Defaults to 10.
         seed (int, optional): Defaults to 0.
-        periodicity_slack (float, optional): Defaults to 2.
-        periodicity (typing.List[ typing.Tuple[ int, int ], optional):
-            TODO(shreyashankar: describe). Defaults to [].
 
     Returns:
         typing.Tuple[typing.List[np.ndarray], typing.List[np.ndarray]]:
-            List of probability vectors, list of signals
+            List of logits vectors, list of signals
     """
     n = domain_matrices[0].shape[0]
     m = len(domain_matrices)
-    probabilities = []
+    logits = []
     signals = []
 
     # Set seeds
     np.random.seed(seed)
     random.seed(seed)
 
+    # signals in first period all set to same value for each domain type
     prev_s_vectors = [
-        [start_max / mat.shape[1]]
-        * mat.shape[1]  # initialize to midpoint of range
-        for mat in domain_matrices
+        [start_max / mat.shape[1]] * mat.shape[1] for mat in domain_matrices
     ]
+
     prev_z = aggregate_min(
         [mat @ s for mat, s in zip(domain_matrices, prev_s_vectors)],
         use_cvx=False,
@@ -103,7 +94,7 @@ def create_probabilities(
     prev_p = softmax(prev_z)
 
     signals.append(prev_s_vectors)
-    probabilities.append(prev_p)
+    logits.append(prev_z)
 
     peaks = np.random.choice(n, num_peaks).tolist()
     duration_counter = 0
@@ -158,22 +149,7 @@ def create_probabilities(
 
         nonnegativity_constraints = [s_vectors[i] >= 0 for i in range(m)]
 
-        # value of jth value of domain i should be the same as (j-1)th value
-        # 'period' timesteps ago
-        periodic_constraints = []
-
-        for i, period in periodicity:
-            if t > period:
-                periodic_constraints.append(
-                    cp.norm(s_vectors[i] - np.roll(signals[-period][i], 1), 1)
-                    <= periodicity_slack
-                )
-
-        all_constraints = (
-            smoothness_constraints
-            + nonnegativity_constraints
-            + periodic_constraints
-        )
+        all_constraints = smoothness_constraints + nonnegativity_constraints
 
         # Solve the problem
         prob = cp.Problem(obj, all_constraints)
@@ -189,9 +165,9 @@ def create_probabilities(
 
         # signal value should persist for entirety of duration
         for d in range(duration):
-            if len(signals) <= T:
+            if len(signals) < T:
                 signals.append([s.value for s in s_vectors])
-                probabilities.append(curr_p)
+                logits.append(curr_z)
 
             if (t + d) % log_step == 0:
                 logging.info(f"Iteration {t + d}: {optimal_value}")
@@ -201,7 +177,7 @@ def create_probabilities(
         prev_z = curr_z
         prev_p = curr_p
 
-    return probabilities, signals
+    return logits, signals
 
 
 class FullDataset(torch.utils.data.Dataset):

@@ -1,12 +1,12 @@
 from dotenv import load_dotenv
 from pathlib import Path
-from torchvision import datasets
 from streams.utils import (
     FullDataset,
     SimpleDataset,
     RollingDataFrame,
     get_prompts_and_completions,
 )
+from torchvision import datasets
 from wilds import get_dataset
 
 import io
@@ -50,10 +50,14 @@ def get_mnist(force_download: bool = False):
     for idx, elem in enumerate(dataset):
         domain_matrix[idx][elem[1]] = 1
 
-    return dataset, [domain_matrix]
+    return dataset, [domain_matrix], None
 
 
-def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
+def get_iwildcam(
+    force_download: bool = False, num_location_groups: int = 10
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
     """
     Retrieve and break down the IWildCam dataset along the time and location
     (camera ID) domain types.
@@ -62,6 +66,11 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
         num_location_groups: how many values there should be for the "location"
             domain type (e.g., if 10, then allocate the 300+ camera IDs into 10
             groups)
+
+    Returns:
+        dataset: utils.FullDataset
+        domain_matrices: list of np.ndarray
+        time_periods: np.ndarray (or None, if time is not a domain)
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(
@@ -73,7 +82,6 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
     )
     df["datetime"] = pd.to_datetime(df["datetime"])
     location_idx = raw_dataset.metadata_fields.index("location")
-    time_idx = raw_dataset.metadata_fields.index("month")
 
     # greedily solve partitioning problem so that camera groups are
     # of roughly equal size
@@ -90,14 +98,12 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
         ].item()
 
     location_matrix = np.zeros((len(df), num_location_groups))
-    time_matrix = np.zeros((len(df), df.datetime.dt.month.max() + 1))
 
     for idx in range(len(raw_dataset.metadata_array)):
         metadata = raw_dataset.metadata_array[idx]
         location_matrix[idx][
             location_group_map[metadata[location_idx].item()]
         ] = 1
-        time_matrix[idx][metadata[time_idx]] = 1
 
     dataset = FullDataset(
         raw_dataset,
@@ -106,10 +112,28 @@ def get_iwildcam(force_download: bool = False, num_location_groups: int = 10):
         ),
     )
 
-    return dataset, [location_matrix, time_matrix]
+    time_idx = raw_dataset.metadata_fields.index("month")
+    time_periods = raw_dataset.metadata_array[:, time_idx].numpy()
+
+    return dataset, [location_matrix], time_periods
 
 
-def get_civil_comments(force_download: bool = False):
+def get_civil_comments(
+    force_download: bool = False,
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
+    """Retrieves and preprocesses the Civil Comments dataset. Domains are
+    gender, sexuality, race, religion, and disability.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(
         dataset="civilcomments", download=True, root_dir=download_path
@@ -166,10 +190,25 @@ def get_civil_comments(force_download: bool = False):
 
     dataset = FullDataset(raw_dataset)
 
-    return dataset, matrices
+    return dataset, matrices, None
 
 
-def get_poverty(force_download: bool = False):
+def get_poverty(
+    force_download: bool = False,
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
+    """Retrieves and preprocesses the Poverty dataset. Domains are urban
+    indicator and country.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(
         dataset="poverty", download=True, root_dir=download_path
@@ -182,10 +221,25 @@ def get_poverty(force_download: bool = False):
     country_matrix = pd.get_dummies(df.country).astype(int).values
     dataset = FullDataset(raw_dataset)
 
-    return dataset, [urban_matrix, country_matrix]
+    return dataset, [urban_matrix, country_matrix], None
 
 
-def get_jeopardy(force_download: bool = False):
+def get_jeopardy(
+    force_download: bool = False,
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
+    """Retrieves and preprocesses the Jeopardy dataset. Domains are question
+    value amount and category.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "jeopardy")
     command = (
         "kaggle datasets download -d "
@@ -228,10 +282,25 @@ def get_jeopardy(force_download: bool = False):
     dataset = SimpleDataset(
         df, feature_cols=["Question"], label_cols=["Answer"]
     )
-    return dataset, [value_matrix]  # TODO add category matrix
+    return dataset, [value_matrix], None  # TODO add category matrix
 
 
-def get_air_quality(force_download: bool = False):
+def get_air_quality(
+    force_download: bool = False,
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
+    """Retrieves and preprocesses the Beijing Air Quality dataset.
+    Domain is the station the measurement was taken from.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "air_quality")
     folder_path = os.path.join(download_path, "PRSA_Data_20130301-20170228")
 
@@ -279,10 +348,25 @@ def get_air_quality(force_download: bool = False):
         "WSPM",
     ]
     dataset = RollingDataFrame(df, sensor_cols, "station")
-    return dataset, [station_matrix]
+    return dataset, [station_matrix], None
 
 
-def get_zillow(force_download: bool = False):
+def get_zillow(
+    force_download: bool = False,
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
+    """Retrieves and preprocesses the Zillow dataset. Domain is the
+    metro / area.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "zillow")
     file_paths = [
         os.path.join(download_path, "Metro_mlp_uc_sfrcondo_week.csv"),
@@ -395,10 +479,25 @@ def get_zillow(force_download: bool = False):
         metadata_cols=["RegionID", "sale_date"],
     )
 
-    return dataset, [metro_matrix]
+    return dataset, [metro_matrix], None
 
 
-def get_coauthor(force_download: bool = False):
+def get_coauthor(
+    force_download: bool = False,
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
+    """Retrieves and preprocesses the Coauthor dataset. Domains are worker
+    ID and prompt category.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "coauthor")
     folder_path = os.path.join(download_path, "coauthor-v1.0")
 
@@ -469,16 +568,29 @@ def get_coauthor(force_download: bool = False):
         metadata_cols=["worker_id", "prompt_code"],
     )
 
-    return dataset, [worker_matrix, prompt_matrix]
+    return dataset, [worker_matrix, prompt_matrix], None
 
 
 def get_voxceleb(force_download: bool = False):
     pass
 
 
-def get_test(force_download: bool = False):
+def get_test() -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
+]:
+    """Testing utility function. Creates a fake dataset.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
     df = pd.DataFrame(
-        {"feat1": [1, 2, 3], "feat2": [4, 5, 6], "label": [1, 1, 1]}
+        {
+            "feat1": list(range(20)),
+            "feat2": list(range(20, 40)),
+            "label": [1] * 20,
+        }
     )
 
     matrix = pd.get_dummies(df["feat1"]).astype(int).values
@@ -486,7 +598,7 @@ def get_test(force_download: bool = False):
         df, feature_cols=["feat1", "feat2"], label_cols=["label"]
     )
 
-    return dataset, [matrix]
+    return dataset, [matrix], None
 
 
 name_to_func = {

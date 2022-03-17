@@ -5,16 +5,16 @@ from streams import STREAMSDataset
 
 class TestDataset(unittest.TestCase):
     def setUp(self) -> None:
-        self.T = 100
-        self.inference_window = 10
+        self.T = 10
+        self.inference_window = 1
 
     def testDatasetProperties(self) -> None:
         ds = STREAMSDataset(
             "test", T=self.T, inference_window=self.inference_window
         )
 
-        self.assertTrue(ds.step == 1)
-        self.assertTrue(len(ds.permutation) == self.T)
+        self.assertTrue(ds.step == 0)
+        self.assertTrue(len(ds.sample_history) == self.T)
         self.assertTrue(len(ds) == self.T)
 
     def testCreateBadDataset(self) -> None:
@@ -26,29 +26,29 @@ class TestDataset(unittest.TestCase):
             "test", T=self.T, inference_window=self.inference_window
         )
 
-        ds.advance(1)
-        ds.advance(99)
+        ds.advance(8)
 
+        # can only go up to 8; time step 9 has to be left for inference
         with self.assertRaises(ValueError):
-            ds.advance(100)
+            ds.advance(1)
 
         with self.assertRaises(ValueError):
             ds.advance(-1)
 
-        self.assertTrue(ds.step == (self.T - self.inference_window))
+        self.assertTrue(ds.step == (self.T - 1 - self.inference_window))
 
     def testPeekIntoFuture(self) -> None:
         ds = STREAMSDataset(
             "test", T=self.T, inference_window=self.inference_window
         )
 
-        ds.advance(10)
+        ds.advance(1)
 
         with self.assertRaises(ValueError):
-            ds[80]
+            ds[[8]]
 
         # This should pass
-        ds.get(90, future_ok=True)
+        ds.get([8], future_ok=True)
 
     def testGetData(self) -> None:
         ds = STREAMSDataset(
@@ -56,10 +56,15 @@ class TestDataset(unittest.TestCase):
         )
 
         train_data, test_data = ds.get_data(include_test=True)
-        self.assertTrue(len(train_data) == ds.step)
-        self.assertTrue(len(test_data) == ds.inference_window)
-
-        self.assertTrue((train_data[0][0] == ds[0][0]).all())
+        self.assertTrue((train_data[0][0] == ds.get([ds.step])[0][0]).all())
+        self.assertTrue(
+            (
+                test_data[0][0]
+                == ds.get([ds.step + self.inference_window], future_ok=True)[
+                    0
+                ][0]
+            ).all()
+        )
 
     def testGet(self) -> None:
         ds = STREAMSDataset(
@@ -67,13 +72,17 @@ class TestDataset(unittest.TestCase):
         )
 
         # This should work
-        ds.get(0)
-        ds.get(50, future_ok=True)
+        ds.get([0])
+        ds.get([5], future_ok=True)
 
         # This should not work
         with self.assertRaises(ValueError):
-            ds.get(self.T - 1)
+            ds.get([5])
 
         # After stepping, this should work
-        ds.advance(self.T)
-        ds.get(50)
+        ds.advance(5)
+        ds.get([5])
+
+
+if __name__ == "__main__":
+    unittest.main()
