@@ -171,7 +171,6 @@ def create_logits(
 
             if (t + d) % log_step == 0:
                 logging.info(f"Iteration {t + d}: {optimal_value}")
-                print(f"Iteration {t + d}: {optimal_value}")
 
         # Set new prev vectors
         prev_s_vectors = [s_vec.value for s_vec in s_vectors]
