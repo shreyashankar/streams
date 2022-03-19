@@ -541,7 +541,7 @@ def get_coauthor(
         )
 
     df = pd.concat(dfs)
-    df = df[df["next"] == drop_keyword].reset_index(drop=True)
+    df = df[df["next"] != drop_keyword].reset_index(drop=True)
 
     # Read metadata files for domain values
     def build_sheet_url(doc_id, sheet_id):
