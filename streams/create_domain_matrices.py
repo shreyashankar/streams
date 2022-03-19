@@ -529,10 +529,19 @@ def get_coauthor(
     ]
 
     dfs = []
+    drop_keyword = "DROP_KEYWORD"
     for i, path in enumerate(os.listdir(folder_path)):
-        dfs.append(get_prompts_and_completions(events[i], session_id=path))
+        dfs.append(
+            get_prompts_and_completions(
+                events[i],
+                session_id=path,
+                stride=10,
+                drop_keyword=drop_keyword,
+            )
+        )
 
-    df = pd.concat(dfs).reset_index(drop=True)
+    df = pd.concat(dfs)
+    df = df[df["next"] != drop_keyword].reset_index(drop=True)
 
     # Read metadata files for domain values
     def build_sheet_url(doc_id, sheet_id):
@@ -572,7 +581,7 @@ def get_coauthor(
     dataset = SimpleDataset(
         full_df,
         feature_cols=["prompt", "current"],
-        label_cols=["final"],
+        label_cols=["next"],
         metadata_cols=["worker_id", "prompt_code"],
     )
 
