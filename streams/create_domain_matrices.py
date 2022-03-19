@@ -232,7 +232,7 @@ def get_jeopardy(
     torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
 ]:
     """Retrieves and preprocesses the Jeopardy dataset. Domains are question
-    value amount and category.
+    value amount and month of year.
 
     Args:
         force_download (bool, optional): Defaults to False.
@@ -266,6 +266,7 @@ def get_jeopardy(
             " Category": "Category",
             " Question": "Question",
             " Answer": "Answer",
+            " Air Date": "Air Date",
         },
         axis=1,
         inplace=True,
@@ -278,14 +279,15 @@ def get_jeopardy(
     df["Value"] = (
         df["Value"].str.replace("$", "").str.replace(",", "").astype(float)
     )
+    df["Air Date"] = pd.to_datetime(df["Air Date"])
 
     value_matrix = pd.get_dummies(df["Value"]).astype(int).values
-    category_matrix = pd.get_dummies(df["Category"]).astype(int).values
+    month_matrix = pd.get_dummies(df["Air Date"].dt.month).astype(int).values
 
     dataset = SimpleDataset(
         df, feature_cols=["Question"], label_cols=["Answer"]
     )
-    return dataset, [value_matrix], None  # TODO add category matrix
+    return dataset, [value_matrix, month_matrix], None
 
 
 def get_air_quality(
