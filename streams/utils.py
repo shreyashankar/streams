@@ -401,7 +401,10 @@ def get_completion(text: str, mask: str) -> str:
 
 
 def get_prompts_and_completions(
-    events: list, session_id: str, stride: int = 10
+    events: list,
+    session_id: str,
+    stride: int = 10,
+    drop_keyword: str = "DROP_KEYWORD",
 ) -> pd.DataFrame:
     """For a session, returns a dataframe of prompts and completions.
     Every row in the dataframe represents a snapshot of the session
@@ -411,6 +414,8 @@ def get_prompts_and_completions(
         events (list): List of quilljs events for a session.
         session_id (str): Session ID.
         stride (int, optional): Snapshot time. Defaults to 10.
+        drop_keyword (str, optional): Keyword that represents drop. Defaults to
+            "DROP_KEYWORD".
 
     Returns:
         pd.DataFrame: Prompts and completions for a session.
@@ -450,5 +455,15 @@ def get_prompts_and_completions(
         }
     )
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", origin="unix")
+    df["next"] = df["current"].shift(-1)
+
+    def subtract(row):
+        if not isinstance(row["next"], str):
+            return drop_keyword
+        if row["current"].strip() not in row["next"]:
+            return drop_keyword
+        return row["next"].replace(row["current"].strip(), "")
+
+    df["next"] = df.apply(subtract, axis=1)
 
     return df
