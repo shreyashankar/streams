@@ -535,7 +535,6 @@ def get_coauthor(
             get_prompts_and_completions(
                 events[i],
                 session_id=path,
-                stride=10,
                 drop_keyword=drop_keyword,
             )
         )
