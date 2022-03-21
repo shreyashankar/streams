@@ -311,7 +311,7 @@ def get_air_quality(
     folder_path = os.path.join(download_path, "PRSA_Data_20130301-20170228")
 
     if force_download or not os.path.exists(folder_path):
-        logging.info("Downloading air quality data")
+        logging.debug("Downloading air quality data")
         res = requests.get(
             "https://archive.ics.uci.edu/ml/machine-learning-databases"
             + "/00501/PRSA2017_Data_20130301-20170228.zip",
@@ -405,7 +405,7 @@ def get_zillow(
         or not os.path.exists(file_paths[0])
         or not os.path.exists(file_paths[1])
     ):
-        logging.info("Downloading Zillow data")
+        logging.debug("Downloading Zillow data")
         list_df = pd.read_csv(
             "https://files.zillowstatic.com/research/public_csvs"
             + "/mlp/Metro_mlp_uc_sfrcondo_week.csv"
@@ -532,7 +532,7 @@ def get_coauthor(
     folder_path = os.path.join(download_path, "coauthor-v1.0")
 
     if force_download or not os.path.exists(folder_path):
-        logging.info("Downloading CoAuthor data")
+        logging.debug("Downloading CoAuthor data")
         res = requests.get(
             "https://cs.stanford.edu/~minalee/zip/chi2022-coauthor-v1.0.zip",
             stream=True,

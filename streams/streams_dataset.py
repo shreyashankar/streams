@@ -172,7 +172,7 @@ class STREAMSDataset(object):
             typing.Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
                 "Train" and test datasets.
         """
-        train_dataset = self.get([self._step])
+        train_dataset = self.get(list(range(self._step)))
         if not include_test:
             return train_dataset, None
 
@@ -224,14 +224,19 @@ class STREAMSDataset(object):
         """Gets data until current step as avalanche benchmark."""
         _, test_dataset = self.get_data(include_test=True)
         exp_assignment = [list(range(self._step))]
-        benchmark = avalanche.benchmarks.generators.ni_benchmark(
-            train_dataset=self.dataset,
-            test_dataset=test_dataset,
-            n_experiences=1,
-            seed=self.seed,
-            fixed_exp_assignment=exp_assignment,
-        )
-        return benchmark
+        try:
+            benchmark = avalanche.benchmarks.generators.ni_benchmark(
+                train_dataset=self.dataset,
+                test_dataset=test_dataset,
+                n_experiences=1,
+                seed=self.seed,
+                fixed_exp_assignment=exp_assignment,
+            )
+            return benchmark
+        except ValueError:
+            raise TypeError(
+                "Only classification tasks are supported by Avalanche."
+            )
 
     def advance(self, step_size: int = 1) -> None:
         """Advances the current timestep by step_size.

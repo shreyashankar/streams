@@ -236,7 +236,7 @@ class SimpleDataset(torch.utils.data.Dataset):
         self.metadata_cols = metadata_cols
 
     def __len__(self):
-        return len(self.features)
+        return len(self.df)
 
     def __getitem__(self, idx):
         x = self.df.iloc[idx][self.feature_cols].values
@@ -353,9 +353,9 @@ def apply_ops(
 
             if isinstance(insert_doc, dict):
                 if "image" in insert_doc:
-                    logging.info("Skipping invalid object insertion (image)")
+                    logging.debug("Skipping invalid object insertion (image)")
                 else:
-                    logging.info("Ignore invalid insertions:", op)
+                    logging.debug("Ignore invalid insertions:", op)
                     # Ignore other invalid insertions
                     # Debug if necessary
                     pass
@@ -377,7 +377,7 @@ def apply_ops(
         else:
             # Ignore other operations
             # Debug if necessary
-            logging.info("Ignore other operations:", op)
+            logging.debug("Ignore other operations:", op)
             pass
 
     final_doc = new_doc + original_doc
