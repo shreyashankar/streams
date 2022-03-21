@@ -7,6 +7,7 @@ import logging
 import numpy as np
 import pandas as pd
 import random
+import re
 import torch
 import torchvision.transforms as transforms
 import typing
@@ -403,7 +404,6 @@ def get_completion(text: str, mask: str) -> str:
 def get_prompts_and_completions(
     events: list,
     session_id: str,
-    stride: int = 10,
     drop_keyword: str = "DROP_KEYWORD",
 ) -> pd.DataFrame:
     """For a session, returns a dataframe of prompts and completions.
@@ -413,7 +413,6 @@ def get_prompts_and_completions(
     Args:
         events (list): List of quilljs events for a session.
         session_id (str): Session ID.
-        stride (int, optional): Snapshot time. Defaults to 10.
         drop_keyword (str, optional): Keyword that represents drop. Defaults to
             "DROP_KEYWORD".
 
@@ -427,22 +426,21 @@ def get_prompts_and_completions(
 
     texts = []
     timestamps = []
-    first = True
-    for i, event in enumerate(events):
+    for event in events:
         if "ops" not in event["textDelta"]:
             continue
         ops = event["textDelta"]["ops"]
         source = event["eventSource"]
         text, mask = apply_ops(text, mask, ops, source)
-        if first and list(ops[-1].keys())[0] in ["insert", "delete"]:
-            texts.append(get_completion(text, mask))
-            timestamps.append(event["eventTimestamp"])
-            first = False
 
-        elif i % stride == 0:
-            texts.append(get_completion(text, mask))
-            timestamps.append(event["eventTimestamp"])
-            first = False
+        # If the last char of text is a space, add it to texts
+        if len(text) > 0 and text[-1] == " ":
+            current_completion = get_completion(text, mask).strip()
+            if current_completion != "" and re.search(
+                "[a-zA-Z]", current_completion
+            ):
+                texts.append(current_completion)
+                timestamps.append(event["eventTimestamp"])
 
     final_completion = get_completion(text, mask)
     df = pd.DataFrame(
@@ -454,6 +452,10 @@ def get_prompts_and_completions(
             "final": final_completion,
         }
     )
+    # Filter duplicates
+    df = df.drop_duplicates(subset=["current"], ignore_index=True)
+
+    # Add metadata
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", origin="unix")
     df["next"] = df["current"].shift(-1)
 
