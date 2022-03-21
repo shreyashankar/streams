@@ -1,3 +1,4 @@
+from enum import unique
 from dotenv import load_dotenv
 from pathlib import Path
 from streams.utils import (
@@ -325,10 +326,12 @@ def get_air_quality(
         dfs.append(pd.read_csv(os.path.join(folder_path, filename)))
 
     df = pd.concat(dfs).reset_index(drop=True)
+
     df["year"] = df["year"].astype(int)
     df["month"] = df["month"].astype(int)
     df["day"] = df["day"].astype(int)
     df["hour"] = df["hour"].astype(int)
+    timestamps = pd.to_datetime(df[["year", "month", "day", "hour"]])
 
     # Make one of the sensors int valued
     wds = df.wd.unique().tolist()
@@ -337,6 +340,22 @@ def get_air_quality(
 
     # Create station matrix
     station_matrix = pd.get_dummies(df["station"]).astype(int).values
+
+    # Create time periods array. We use dataframes for speed, otherwise it
+    # will take O(10 mins).
+    unique_timestamps = sorted(timestamps.unique().tolist())
+    timestamp_map = pd.DataFrame(
+        {
+            "timestamp": unique_timestamps,
+            "index": range(0, len(unique_timestamps)),
+        }
+    )
+    timestamp_map["timestamp"] = pd.to_datetime(timestamp_map["timestamp"])
+    timestamp_idx = (
+        timestamps.to_frame(name="timestamp")
+        .merge(timestamp_map, on="timestamp", how="left")["index"]
+        .values
+    )
 
     # Create dataset
     sensor_cols = [
@@ -354,7 +373,7 @@ def get_air_quality(
         "WSPM",
     ]
     dataset = RollingDataFrame(df, sensor_cols, "station")
-    return dataset, [station_matrix], None
+    return dataset, [station_matrix], timestamp_idx
 
 
 def get_zillow(
@@ -476,6 +495,10 @@ def get_zillow(
         columns={"date_x": "sale_date", "date_y": "list_date"}, inplace=True
     )
     metro_matrix = pd.get_dummies(merged["RegionID"]).astype(int).values
+    unique_sale_dates = sorted(merged["sale_date"].unique())
+    sale_idx = (
+        merged["sale_date"].apply(lambda x: unique_sale_dates.index(x)).values
+    )
 
     # Create dataset
     dataset = RollingDataFrame(
@@ -486,7 +509,7 @@ def get_zillow(
         metadata_cols=["RegionID", "sale_date"],
     )
 
-    return dataset, [metro_matrix], None
+    return dataset, [metro_matrix], sale_idx
 
 
 def get_coauthor(
