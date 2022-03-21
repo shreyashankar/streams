@@ -172,7 +172,7 @@ class STREAMSDataset(object):
             typing.Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
                 "Train" and test datasets.
         """
-        train_dataset = self.get(list(range(self._step)))
+        train_dataset = self.get(list(range(self._step + 1)))
         if not include_test:
             return train_dataset, None
 
