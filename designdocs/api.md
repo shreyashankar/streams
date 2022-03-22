@@ -5,7 +5,7 @@
 
 ## Description
 
-We want users to be able to query streams of data from one of 8 datasets (as described in the above doc). Additionally, we want users to be able to add their own datasets to turn into streams. 
+We want users to be able to query streams of data from one of 8 datasets (as described in the above doc). Additionally, we want users to be able to add their own datasets to turn into streams.
 
 
 ## System
@@ -34,7 +34,7 @@ We want users to be able to query streams of data from one of 8 datasets (as des
         * Other parameters (max time steps, sampling function, etc) have defaults designed by us
         * Optional parameter: data_dir (if users has already downloaded data and doesnt want to default to our env var), initial_buffer (int number of data points to initially load)
         * Instance variables: current timestep, permutation of data points
-        * Downloads dataset if 
+        * Downloads dataset if
     * `get_data`
         * backend: pytorch dataset, pandas dataframe, TFData
         * Returns data until current timestep
@@ -73,7 +73,7 @@ We want users to be able to query streams of data from one of 8 datasets (as des
 
 
 * Raw data (disk)
-* Domain matrices 
+* Domain matrices
     * in-memory int matrices
     * Hosted in S3 so we can reuse across people (?)
 * Permutation (in-memory vector)

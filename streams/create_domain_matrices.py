@@ -1,40 +1,31 @@
-from dotenv import load_dotenv
-from pathlib import Path
-from streams.utils import (
-    FullDataset,
-    SimpleDataset,
-    RollingDataFrame,
-    get_prompts_and_completions,
-)
-from torchvision import datasets
-from wilds import get_dataset
-
 import io
 import json
 import logging
-import numpy as np
 import os
-import pandas as pd
-import requests
 import subprocess
-import torch
-import torchvision.transforms as transforms
 import typing
 import zipfile
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import requests
+import torch
+import torchvision.transforms as transforms
+from dotenv import load_dotenv
+from torchvision import datasets
+from wilds import get_dataset
+
+from streams.utils import (FullDataset, RollingDataFrame, SimpleDataset,
+                           get_prompts_and_completions)
 
 load_dotenv()
 DOWNLOAD_PREFIX = (
-    os.getenv("DOWNLOAD_PREFIX")
-    if os.getenv("DOWNLOAD_PREFIX")
-    else "streams_data"
+    os.getenv("DOWNLOAD_PREFIX") if os.getenv("DOWNLOAD_PREFIX") else "streams_data"
 )
 KAGGLE_USERNAME = os.getenv("KAGGLE_USERNAME")
 KAGGLE_KEY = os.getenv("KAGGLE_KEY")
-HOME = (
-    os.getenv("DOWNLOAD_HOME")
-    if os.getenv("DOWNLOAD_HOME")
-    else str(Path.home())
-)
+HOME = os.getenv("DOWNLOAD_HOME") if os.getenv("DOWNLOAD_HOME") else str(Path.home())
 
 
 def get_mnist(force_download: bool = False):
@@ -55,9 +46,7 @@ def get_mnist(force_download: bool = False):
 
 def get_iwildcam(
     force_download: bool = False, num_location_groups: int = 10
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """
     Retrieve and break down the IWildCam dataset along the time and location
     (camera ID) domain types.
@@ -73,13 +62,9 @@ def get_iwildcam(
         time_periods: np.ndarray (or None, if time is not a domain)
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
-    raw_dataset = get_dataset(
-        dataset="iwildcam", download=True, root_dir=download_path
-    )
+    raw_dataset = get_dataset(dataset="iwildcam", download=True, root_dir=download_path)
 
-    df = pd.read_csv(
-        os.path.join(download_path, "iwildcam_v2.0", "metadata.csv")
-    )
+    df = pd.read_csv(os.path.join(download_path, "iwildcam_v2.0", "metadata.csv"))
     df["datetime"] = pd.to_datetime(df["datetime"])
     location_idx = raw_dataset.metadata_fields.index("location")
 
@@ -93,17 +78,13 @@ def get_iwildcam(
     for location in location_count.argsort(descending=True):
         smallest_group_index = location_group_sizes.argmin().item()
         location_group_map[location.item()] = smallest_group_index
-        location_group_sizes[smallest_group_index] += location_count[
-            location
-        ].item()
+        location_group_sizes[smallest_group_index] += location_count[location].item()
 
     location_matrix = np.zeros((len(df), num_location_groups))
 
     for idx in range(len(raw_dataset.metadata_array)):
         metadata = raw_dataset.metadata_array[idx]
-        location_matrix[idx][
-            location_group_map[metadata[location_idx].item()]
-        ] = 1
+        location_matrix[idx][location_group_map[metadata[location_idx].item()]] = 1
 
     dataset = FullDataset(
         raw_dataset,
@@ -120,9 +101,7 @@ def get_iwildcam(
 
 def get_civil_comments(
     force_download: bool = False,
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """Retrieves and preprocesses the Civil Comments dataset. Domains are
     gender, sexuality, race, religion, and disability.
 
@@ -184,9 +163,7 @@ def get_civil_comments(
         matrix = np.hstack([matrix, last_col])
         matrices.append(matrix)
 
-    publication_id_matrix = (
-        pd.get_dummies(df.publication_id).astype(int).values
-    )
+    publication_id_matrix = pd.get_dummies(df.publication_id).astype(int).values
     matrices.append(publication_id_matrix)
 
     dataset = FullDataset(raw_dataset)
@@ -196,9 +173,7 @@ def get_civil_comments(
 
 def get_poverty(
     force_download: bool = False,
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """Retrieves and preprocesses the Poverty dataset. Domains are urban
     indicator and country.
 
@@ -212,12 +187,8 @@ def get_poverty(
             (if time is a domain)
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
-    raw_dataset = get_dataset(
-        dataset="poverty", download=True, root_dir=download_path
-    )
-    df = pd.read_csv(
-        os.path.join(download_path, "poverty_v1.1", "dhs_metadata.csv")
-    )
+    raw_dataset = get_dataset(dataset="poverty", download=True, root_dir=download_path)
+    df = pd.read_csv(os.path.join(download_path, "poverty_v1.1", "dhs_metadata.csv"))
 
     urban_matrix = pd.get_dummies(df.urban).astype(int).values
     country_matrix = pd.get_dummies(df.country).astype(int).values
@@ -228,9 +199,7 @@ def get_poverty(
 
 def get_jeopardy(
     force_download: bool = False,
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """Retrieves and preprocesses the Jeopardy dataset. Domains are question
     value amount and month of year.
 
@@ -276,25 +245,19 @@ def get_jeopardy(
 
     df["Category"] = df["Category"].astype(str).str.strip().str.lower()
     df["Value"] = df["Value"].astype(str).str.strip().str.lower()
-    df["Value"] = (
-        df["Value"].str.replace("$", "").str.replace(",", "").astype(float)
-    )
+    df["Value"] = df["Value"].str.replace("$", "").str.replace(",", "").astype(float)
     df["Air Date"] = pd.to_datetime(df["Air Date"])
 
     value_matrix = pd.get_dummies(df["Value"]).astype(int).values
     month_matrix = pd.get_dummies(df["Air Date"].dt.month).astype(int).values
 
-    dataset = SimpleDataset(
-        df, feature_cols=["Question"], label_cols=["Answer"]
-    )
+    dataset = SimpleDataset(df, feature_cols=["Question"], label_cols=["Answer"])
     return dataset, [value_matrix, month_matrix], None
 
 
 def get_air_quality(
     force_download: bool = False,
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """Retrieves and preprocesses the Beijing Air Quality dataset.
     Domain is the station the measurement was taken from.
 
@@ -377,9 +340,7 @@ def get_air_quality(
 
 def get_zillow(
     force_download: bool = False,
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """Retrieves and preprocesses the Zillow dataset. Domain is the
     metro / area.
 
@@ -395,9 +356,7 @@ def get_zillow(
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "zillow")
     file_paths = [
         os.path.join(download_path, "Metro_mlp_uc_sfrcondo_week.csv"),
-        os.path.join(
-            download_path, "Metro_median_sale_price_uc_sfrcondo_week.csv"
-        ),
+        os.path.join(download_path, "Metro_median_sale_price_uc_sfrcondo_week.csv"),
     ]
 
     if (
@@ -490,14 +449,10 @@ def get_zillow(
         == merged["date_y"]
     )
     merged = merged[idx].reset_index(drop=True)
-    merged.rename(
-        columns={"date_x": "sale_date", "date_y": "list_date"}, inplace=True
-    )
+    merged.rename(columns={"date_x": "sale_date", "date_y": "list_date"}, inplace=True)
     metro_matrix = pd.get_dummies(merged["RegionID"]).astype(int).values
     unique_sale_dates = sorted(merged["sale_date"].unique())
-    sale_idx = (
-        merged["sale_date"].apply(lambda x: unique_sale_dates.index(x)).values
-    )
+    sale_idx = merged["sale_date"].apply(lambda x: unique_sale_dates.index(x)).values
 
     # Create dataset
     dataset = RollingDataFrame(
@@ -513,9 +468,7 @@ def get_zillow(
 
 def get_coauthor(
     force_download: bool = False,
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """Retrieves and preprocesses the Coauthor dataset. Domains are worker
     ID and prompt category.
 
@@ -546,8 +499,7 @@ def get_coauthor(
         if path.endswith("jsonl")
     ]
     events = [
-        [json.loads(event) for event in open(path, "r")]
-        for path in session_paths
+        [json.loads(event) for event in open(path, "r")] for path in session_paths
     ]
 
     dfs = []
@@ -582,9 +534,7 @@ def get_coauthor(
 
     # Make sure metadata files are well-formed
     assert creative_metadata["session_id"].nunique() == len(creative_metadata)
-    assert argumentative_metadata["session_id"].nunique() == len(
-        argumentative_metadata
-    )
+    assert argumentative_metadata["session_id"].nunique() == len(argumentative_metadata)
     metadata = pd.concat(
         [
             creative_metadata[["worker_id", "session_id", "prompt_code"]],
@@ -615,9 +565,7 @@ def get_voxceleb(force_download: bool = False):
 
 def get_test(
     force_download=False,
-) -> typing.Tuple[
-    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray
-]:
+) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
     """Testing utility function. Creates a fake dataset.
 
     Returns:
@@ -635,9 +583,7 @@ def get_test(
     )
 
     matrix = pd.get_dummies(df["feat1"]).astype(int).values
-    dataset = SimpleDataset(
-        df, feature_cols=["feat1", "feat2"], label_cols=["label"]
-    )
+    dataset = SimpleDataset(df, feature_cols=["feat1", "feat2"], label_cols=["label"])
 
     return dataset, [matrix], None
 
