@@ -26,6 +26,7 @@ setup(
         "matplotlib",
         "numpy",
         "pandas",
+        "pre-commit",
         "pytest",
         "python-dotenv",
         "seaborn",
