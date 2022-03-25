@@ -1,12 +1,13 @@
-from streams.create_domain_matrices import name_to_func
-from streams.utils import create_logits, softmax
+import logging
+import typing
 
 import avalanche
-import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import typing
+
+from streams.create_domain_matrices import name_to_func
+from streams.utils import create_logits, softmax
 
 supported_datasets = name_to_func.keys()
 
@@ -95,9 +96,7 @@ class STREAMSDataset(object):
             n_t[0] += self._n - sum(n_t)
 
         time_periods = (
-            self.time_periods
-            if (self.time_periods is not None)
-            else np.zeros(self._n)
+            self.time_periods if (self.time_periods is not None) else np.zeros(self._n)
         )
         remaining = np.ones(self._n)
         current_time_period = 0
@@ -172,15 +171,13 @@ class STREAMSDataset(object):
             typing.Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
                 "Train" and test datasets.
         """
-        train_dataset = self.get(list(range(self._step + 1)))
+        train_dataset = self.get([self._step])
         if not include_test:
             return train_dataset, None
 
         # Include test data
         test_dataset = self.get(
-            list(
-                range(self._step + 1, self._step + 1 + self._inference_window)
-            ),
+            list(range(self._step + 1, self._step + 1 + self._inference_window)),
             future_ok=True,
         )
         return train_dataset, test_dataset
@@ -190,9 +187,7 @@ class STREAMSDataset(object):
         batch_size: int = 64,
         shuffle: bool = True,
         include_test: bool = False,
-    ) -> typing.Tuple[
-        torch.utils.data.DataLoader, torch.utils.data.DataLoader
-    ]:
+    ) -> typing.Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
         """Dataloader wrapper around get_data.
 
         Args:
@@ -213,9 +208,7 @@ class STREAMSDataset(object):
         if not include_test:
             return train_dl, None
 
-        test_dl = torch.utils.data.DataLoader(
-            test_dataset, batch_size=batch_size
-        )
+        test_dl = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
         return train_dl, test_dl
 
     def get_benchmark(
@@ -234,9 +227,7 @@ class STREAMSDataset(object):
             )
             return benchmark
         except ValueError:
-            raise TypeError(
-                "Only classification tasks are supported by Avalanche."
-            )
+            raise TypeError("Only classification tasks are supported by Avalanche.")
 
     def advance(self, step_size: int = 1) -> None:
         """Advances the current timestep by step_size.
@@ -306,17 +297,13 @@ class STREAMSDataset(object):
                         + f" the current step is {self._step}."
                     )
 
-        data_indices = [
-            i for t in step_indices for i in self.sample_history[t]
-        ]
+        data_indices = [i for t in step_indices for i in self.sample_history[t]]
         return torch.utils.data.Subset(self.dataset, data_indices)
 
     def __len__(self) -> int:
         """Gets length of dataset."""
         return len(self.sample_history)
 
-    def __getitem__(
-        self, step_indices: typing.List[int]
-    ) -> torch.utils.data.Dataset:
+    def __getitem__(self, step_indices: typing.List[int]) -> torch.utils.data.Dataset:
         """Accesses data for given indices. Wraps get."""
         return self.get(step_indices, future_ok=False)
