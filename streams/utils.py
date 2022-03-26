@@ -450,3 +450,18 @@ def get_prompts_and_completions(
     df["next"] = df.apply(subtract, axis=1)
 
     return df
+
+
+def adult_filter(data: pd.DataFrame) -> pd.DataFrame:
+    """Mimic the filters in place for Adult data.
+    Adult documentation notes: Extraction was done by Barry Becker from
+    the 1994 Census database. A set of reasonably clean records was extracted
+    using the following conditions:
+    ((AAGE>16) && (AGI>100) && (AFNLWGT>1)&& (HRSWK>0))
+    """
+    df = data
+    df = df[df["AGEP"] > 16]
+    df = df[df["PINCP"] > 100]
+    df = df[df["WKHP"] > 0]
+    df = df[df["PWGTP"] >= 1]
+    return df
