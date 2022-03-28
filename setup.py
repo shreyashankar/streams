@@ -24,6 +24,7 @@ setup(
         "cvxpy",
         "kaggle",
         "matplotlib",
+        "nuscenes-devkit",
         "numpy",
         "pandas",
         "pre-commit",

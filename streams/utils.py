@@ -7,6 +7,7 @@ import typing
 from datetime import datetime
 
 import cvxpy as cp
+import nuimages
 import numpy as np
 import pandas as pd
 import torch
@@ -288,6 +289,40 @@ class RollingDataFrame(torch.utils.data.Dataset):
             return x, y, metadata
 
         return x, y
+
+
+class NuImagesDataset(torch.utils.data.Dataset):
+    def __init__(
+        self, nuim: nuimages.nuimages.NuImages, metadata: dict, transform=None
+    ):
+        """PyTorch dataset for NuImages.
+
+        Args:
+            nuim (nuimages.nuimages.NuImages): nuimages dataset.
+            metadata (dict): Dictionary of modality, location, vehicle lists.
+            transform: Torch transform. Defaults to None.
+        """
+        self.nuim = nuim
+        self.metadata = metadata
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.nuim)
+
+    def __getitem__(self, idx):
+        ann = self.nuim.object_ann[idx]
+        category = self.nuim.get("category", ann["category_token"])
+        sample_data = self.nuim.get("sample_data", ann["sample_data_token"])
+
+        # Things to return
+        filename = sample_data["filename"]
+        bbox = ann["bbox"]
+        category_name = category["name"]
+        metadata = {key: self.metadata[key][idx] for key in self.metadata}
+
+        # TODO(shreyashankar): convert to torch
+
+        return filename, bbox, category_name, metadata
 
 
 # UTILITY FUNCTIONS FOR COAUTHOR

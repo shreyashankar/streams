@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import subprocess
+import tarfile
 import typing
 import zipfile
 from pathlib import Path
@@ -13,11 +14,12 @@ import requests
 import torch
 import torchvision.transforms as transforms
 from dotenv import load_dotenv
+from nuimages import NuImages
 from torchvision import datasets
 from wilds import get_dataset
 
-from streams.utils import (FullDataset, RollingDataFrame, SimpleDataset,
-                           get_prompts_and_completions)
+from streams.utils import (FullDataset, NuImagesDataset, RollingDataFrame,
+                           SimpleDataset, get_prompts_and_completions)
 
 load_dotenv()
 DOWNLOAD_PREFIX = (
@@ -588,6 +590,76 @@ def get_test(
     return dataset, [matrix], None
 
 
+def get_nuimages(force_download=False):
+    """Retrieves and preprocesses the NuImages dataset. Domains are
+    modality, location, and vehicle ID.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
+    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "nuscenes")
+
+    # TODO(shreyashankar): Download full dataset instead of mini
+    if force_download or not os.path.exists(download_path):
+        logging.debug("Downloading nuscenes images data")
+        res = requests.get(
+            "https://www.nuscenes.org/data/nuimages-v1.0-mini.tgz",
+            stream=True,
+        )
+        with tarfile.open(fileobj=io.BytesIO(res.content)) as ref:
+            ref.extractall(download_path)
+
+    nuim = NuImages(
+        dataroot=download_path,
+        version="v1.0-mini",
+        lazy=True,
+    )
+
+    # Create domain matrices
+    modalities = []
+    locations = []
+    vehicles = []
+
+    for data in nuim.object_ann:
+        modalities.append(
+            nuim.get(
+                "sensor",
+                nuim.get(
+                    "calibrated_sensor",
+                    nuim.get("sample_data", data["sample_data_token"])[
+                        "calibrated_sensor_token"
+                    ],
+                )["sensor_token"],
+            )["modality"]
+        )
+        log = nuim.get(
+            "log",
+            nuim.get(
+                "sample",
+                nuim.get("sample_data", data["sample_data_token"])["sample_token"],
+            )["log_token"],
+        )
+        locations.append(log["location"])
+        vehicles.append(log["vehicle"])
+
+    modality_matrix = pd.get_dummies(modalities).astype(int).values
+    location_matrix = pd.get_dummies(locations).astype(int).values
+    vehicle_matrix = pd.get_dummies(vehicles).astype(int).values
+
+    dataset = NuImagesDataset(
+        nuim,
+        {"modality": modalities, "location": locations, "vehicle": vehicles},
+    )
+
+    return dataset, [modality_matrix, location_matrix, vehicle_matrix], None
+
+
 name_to_func = {
     "mnist": get_mnist,
     "iwildcam": get_iwildcam,
@@ -598,4 +670,5 @@ name_to_func = {
     "zillow": get_zillow,
     "coauthor": get_coauthor,
     "test": get_test,
+    "nuimages": get_nuimages,
 }
