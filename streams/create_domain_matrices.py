@@ -7,6 +7,8 @@ import tarfile
 import typing
 import zipfile
 from pathlib import Path
+from turtle import down
+from unicodedata import category
 
 import numpy as np
 import pandas as pd
@@ -625,8 +627,10 @@ def get_nuimages(force_download=False):
     modalities = []
     locations = []
     vehicles = []
+    categories = []
 
     for data in nuim.object_ann:
+        categories.append(data["category_token"])
         modalities.append(
             nuim.get(
                 "sensor",
@@ -652,9 +656,14 @@ def get_nuimages(force_download=False):
     location_matrix = pd.get_dummies(locations).astype(int).values
     vehicle_matrix = pd.get_dummies(vehicles).astype(int).values
 
+    # Create dataset and labels
+    distinct_labels = list(np.unique(categories))
+    labels = [distinct_labels.index(x) for x in categories]
     dataset = NuImagesDataset(
         nuim,
+        labels,
         {"modality": modalities, "location": locations, "vehicle": vehicles},
+        download_path,
     )
 
     return dataset, [modality_matrix, location_matrix, vehicle_matrix], None

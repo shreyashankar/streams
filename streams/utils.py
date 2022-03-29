@@ -1,6 +1,7 @@
 """Utility functions for creating streams."""
 
 import logging
+import os
 import random
 import re
 import typing
@@ -12,6 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torchvision.transforms as transforms
+from PIL import Image
 
 
 def aggregate_min(arrays: typing.List[np.ndarray], use_cvx: bool = True) -> np.ndarray:
@@ -293,18 +295,27 @@ class RollingDataFrame(torch.utils.data.Dataset):
 
 class NuImagesDataset(torch.utils.data.Dataset):
     def __init__(
-        self, nuim: nuimages.nuimages.NuImages, metadata: dict, transform=None
+        self,
+        nuim: nuimages.nuimages.NuImages,
+        labels: typing.List[int],
+        metadata: dict,
+        prefix: str,
+        transform=None,
     ):
         """PyTorch dataset for NuImages.
 
         Args:
             nuim (nuimages.nuimages.NuImages): nuimages dataset.
+            labels (typing.List[int]): List of labels.
             metadata (dict): Dictionary of modality, location, vehicle lists.
+            prefix (str): Prefix for image filenames.
             transform: Torch transform. Defaults to None.
         """
         self.nuim = nuim
         self.metadata = metadata
         self.transform = transform
+        self.targets = labels
+        self.prefix = prefix
 
     def __len__(self):
         return len(self.nuim)
@@ -320,9 +331,16 @@ class NuImagesDataset(torch.utils.data.Dataset):
         category_name = category["name"]
         metadata = {key: self.metadata[key][idx] for key in self.metadata}
 
-        # TODO(shreyashankar): convert to torch
+        full_path = os.path.join(self.prefix, filename)
+        image = Image.open(full_path)
+        x = transforms.Compose([transforms.PILToTensor()])(image)
 
-        return filename, bbox, category_name, metadata
+        if self.transform is not None:
+            x = self.transform(x)
+
+        y = torch.tensor(self.targets[idx])
+
+        return x, y, bbox, category_name, metadata
 
 
 # UTILITY FUNCTIONS FOR COAUTHOR
