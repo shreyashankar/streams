@@ -173,6 +173,8 @@ def get_civil_comments(
         matrices.append(matrix)
 
     publication_id_matrix = pd.get_dummies(df.publication_id).astype(int).values
+    last_col = (publication_id_matrix.sum(axis=1) == 0).astype(int).reshape(-1, 1)
+    publication_id_matrix = np.hstack([publication_id_matrix, last_col])
     matrices.append(publication_id_matrix)
 
     dataset = FullDataset(raw_dataset)
