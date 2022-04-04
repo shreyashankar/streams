@@ -15,6 +15,12 @@ class TestDataset(unittest.TestCase):
         self.assertTrue(len(ds.sample_history) == self.T)
         self.assertTrue(len(ds) == self.T)
 
+    def testTrainTestLeakage(self) -> None:
+        ds = STREAMSDataset("test", T=self.T, inference_window=self.inference_window)
+
+        for t in range(ds._T):
+            self.assertEqual(set([]), set(ds.sample_history[t]) & set(ds.oracle_training_data[t]))
+
     def testCreateBadDataset(self) -> None:
         with self.assertRaises(ValueError):
             STREAMSDataset("bad_dataset")
