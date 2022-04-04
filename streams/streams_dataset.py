@@ -19,6 +19,7 @@ class STREAMSDataset(object):
         T: int = None,
         inference_window: int = 1,
         seed: int = 42,
+        use_time_ordering: bool = False,
         force_download: bool = False,
         n_t: typing.List[int] = [],
         **kwargs,
@@ -32,6 +33,7 @@ class STREAMSDataset(object):
             inference_window (int, optional): Number of timesteps after current
                 time step that can be used for "testing." Defaults to 1.
             seed (int, optional): Random seed. Defaults to 42.
+            use_time_ordering (bool, optional): Whether to use time ordering.
             force_download (bool, optional): Whether to forcibly redownload the
                 dataset. Defaults to False.
             n_t (typing.List[int], optional): T-sized list with number of
@@ -44,14 +46,17 @@ class STREAMSDataset(object):
             raise ValueError(f"Dataset {name} is not supported")
 
         self._name = name  # TODO(shreyashankar): make properties
-        self._T = T
         self._inference_window = inference_window
         self._seed = seed
         logging.info(f"Creating dataset {name}")
-        self.dataset, self.domain_matrices, self.time_periods = name_to_func[
-            self._name
-        ](force_download)
+        (
+            self.dataset,
+            self.domain_matrices,
+            self.time_periods,
+            self.time_ordering,
+        ) = name_to_func[self._name](force_download)
         self._n = self.domain_matrices[0].shape[0]
+        self._T = T if T else self._n
 
         if self._n < self._T:
             raise ValueError("More timesteps than examples in dataset")
@@ -59,20 +64,54 @@ class STREAMSDataset(object):
         self.time_periods = None
 
         # Create probabilities
-        logging.info("Creating logits")
-        self.sampling_logits, self.signals = create_logits(
-            self.domain_matrices,
-            T=len(self.dataset) if T is None else T,
-            **kwargs,
-        )
+        if not use_time_ordering:
+            logging.info("Creating logits")
+            self.sampling_logits, self.signals = create_logits(
+                self.domain_matrices,
+                T=len(self.dataset) if T is None else T,
+                **kwargs,
+            )
 
         # Create samples
-        self.sample_history = self._sample_without_replacement(n_t=n_t)
+        self.sample_history = (
+            self._sample_without_replacement(n_t=n_t)
+            if not use_time_ordering
+            else self._time_order(n_t=n_t)
+        )
         self.num_examples = sum(
             [len(x) for x in self.sample_history]
         )  # could be less than self._n
 
         self.reset()
+
+    def _time_order(self, n_t: typing.List[int] = []) -> typing.List[np.ndarray]:
+        """If user specifies a strict time ordering, then create the stream in
+        this fashion.
+
+        Args:
+            n_t (optional): T-sized list with number of examples to be sampled
+                for each timestep
+
+        Returns:
+            List of samples for timesteps 1 .. T.
+        """
+        if self.time_ordering is None:
+            raise ValueError("No time ordering for this dataset.")
+
+        if n_t == []:
+            n_t = [int(self._n / self._T)] * self._T
+            n_t[0] += self._n - sum(n_t)
+
+        sample_history = []
+        seen = 0
+
+        for t in range(self._T):
+            goal = n_t[t]
+            sample = self.time_ordering[seen : seen + goal]
+            sample_history.append(sample)
+            seen += goal
+
+        return sample_history
 
     def _sample_without_replacement(
         self, n_t: typing.List[int] = []
