@@ -1,7 +1,9 @@
 import logging
+import os
 import typing
 
 import avalanche
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -48,6 +50,7 @@ class STREAMSDataset(object):
         self._name = name  # TODO(shreyashankar): make properties
         self._inference_window = inference_window
         self._seed = seed
+
         logging.info(f"Creating dataset {name}")
         (
             self.dataset,
@@ -65,24 +68,72 @@ class STREAMSDataset(object):
 
         # Create probabilities
         if not use_time_ordering:
-            logging.info("Creating logits")
-            self.sampling_logits, self.signals = create_logits(
-                self.domain_matrices,
-                T=len(self.dataset) if T is None else T,
-                **kwargs,
-            )
+            if "sampling_logits" in kwargs:
+                self.sampling_logits = kwargs["sampling_logits"]
+                self.signals = kwargs["signals"]
+            else:
+                logging.info("Creating logits")
+                self.sampling_logits, self.signals = create_logits(
+                    self.domain_matrices,
+                    T=len(self.dataset) if T is None else T,
+                    **kwargs,
+                )
 
         # Create samples
-        self.sample_history = (
-            self._sample_without_replacement(n_t=n_t)
-            if not use_time_ordering
-            else self._time_order(n_t=n_t)
-        )
+        if "sample_history" in kwargs:
+            self.sample_history = kwargs["sample_history"]
+        else:
+            self.sample_history = (
+                self._sample_without_replacement(n_t=n_t)
+                if not use_time_ordering
+                else self._time_order(n_t=n_t)
+            )
         self.num_examples = sum(
             [len(x) for x in self.sample_history]
         )  # could be less than self._n
 
         self.reset()
+
+    def get_config(self) -> dict:
+        """Gets configuraton of the stream.
+
+        Returns:
+            dict: Config serialized.
+        """
+        ret = {
+            "name": self._name,
+            "T": self._T,
+            "inference_window": self._inference_window,
+            "seed": self._seed,
+            "use_time_ordering": self.time_ordering is not None,
+            "sampling_logits": self.sampling_logits,
+            "signals": self.signals,
+            "sample_history": self.sample_history,
+        }
+
+        return ret
+
+    @staticmethod
+    def from_config(config_path: str) -> "STREAMSDataset":
+        """Loads dataset from config file.
+
+        Args:
+            config_path (str): Path to config file.
+
+        Returns:
+            STREAMSDataset: Dataset loaded from config file.
+        """
+        return STREAMSDataset(**joblib.load(config_path))
+
+    def save_config(self, path: str) -> None:
+        """Saves configuration of the stream.
+
+        Args:
+            path (str): Path to save configuration.
+        """
+        os.makedirs(os.path.split(path)[0], exist_ok=True)
+        with open(path, "wb") as f:
+            joblib.dump(self.get_config(), f)
 
     def _time_order(self, n_t: typing.List[int] = []) -> typing.List[np.ndarray]:
         """If user specifies a strict time ordering, then create the stream in
