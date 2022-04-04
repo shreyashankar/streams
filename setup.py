@@ -22,6 +22,7 @@ setup(
     install_requires=[
         "avalanche-lib",
         "cvxpy",
+        "folktables",
         "kaggle",
         "matplotlib",
         "nuscenes-devkit",

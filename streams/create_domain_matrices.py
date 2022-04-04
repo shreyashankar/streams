@@ -10,6 +10,7 @@ from pathlib import Path
 from turtle import down
 from unicodedata import category
 
+import folktables
 import numpy as np
 import pandas as pd
 import requests
@@ -21,7 +22,8 @@ from torchvision import datasets
 from wilds import get_dataset
 
 from streams.utils import (FullDataset, NuImagesDataset, RollingDataFrame,
-                           SimpleDataset, get_prompts_and_completions)
+                           SimpleDataset, adult_filter,
+                           get_prompts_and_completions)
 
 load_dotenv()
 DOWNLOAD_PREFIX = (
@@ -563,8 +565,69 @@ def get_coauthor(
     return dataset, [worker_matrix, prompt_matrix], None
 
 
-def get_voxceleb(force_download: bool = False):
-    pass
+def get_census(force_download: bool = False):
+    """Retrieves and preprocesses the Census dataset. Domains are
+    race & state.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain)
+    """
+    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "census")
+
+    # Declare problem setups
+    feature_columns = [
+        "ST",
+        "AGEP",
+        "SCHL",
+        "MAR",
+        "RELP",
+        "DIS",
+        "ESP",
+        "CIT",
+        "MIG",
+        "MIL",
+        "ANC",
+        "NATIVITY",
+        "DEAR",
+        "DEYE",
+        "DREM",
+        "SEX",
+        "RAC1P",
+    ]
+
+    # Download data
+    data_source = folktables.ACSDataSource(
+        survey_year="2018", horizon="1-Year", survey="person"
+    )
+    if force_download or not os.path.exists(download_path):
+        logging.debug("Downloading Census data")
+        acs_data = data_source.get_data(root_dir=download_path, dowload=True)
+
+    else:
+        acs_data = data_source.get_data(download=False)
+
+    # Preprocess
+    acs_data = adult_filter(acs_data).reset_index(drop=True)
+    acs_data["ESR_binary"] = (acs_data["ESR"] == 1).astype(int)
+    acs_data = acs_data.fillna(-1)
+    race_matrix = pd.get_dummies(acs_data["RAC1P"]).astype(int).values
+    state_matrix = pd.get_dummies(acs_data["ST"]).astype(int).values
+
+    # Create dataset
+    dataset = SimpleDataset(
+        acs_data,
+        feature_cols=feature_columns,
+        label_cols=["ESR_binary"],
+        metadata_cols=["ST", "RAC1P"],
+    )
+
+    return dataset, [race_matrix, state_matrix], None
 
 
 def get_test(
@@ -679,5 +742,6 @@ name_to_func = {
     "zillow": get_zillow,
     "coauthor": get_coauthor,
     "test": get_test,
+    "census": get_census,
     "nuimages": get_nuimages,
 }
