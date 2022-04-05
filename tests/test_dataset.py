@@ -15,6 +15,23 @@ class TestDataset(unittest.TestCase):
         self.assertTrue(len(ds.sample_history) == self.T)
         self.assertTrue(len(ds) == self.T)
 
+    def testSignalStart(self) -> None:
+        starting_time_steps = { (0, 9): 5, (0, 0): 9 }
+        ds = STREAMSDataset("test", T=10, log_step=1, start_max=10, duration=1,
+                starting_time_steps=starting_time_steps)
+
+        complete_sample_history = []
+
+        for t in range(ds._T):
+            for (i,j) in starting_time_steps:
+                if starting_time_steps[(i,j)] > t:
+                    self.assertNotIn(j, ds.sample_history[t])
+
+            complete_sample_history.extend(ds.sample_history[t])
+
+        self.assertIn(5, complete_sample_history)
+        self.assertIn(9, complete_sample_history)
+
     def testTrainTestLeakage(self) -> None:
         ds = STREAMSDataset("test", T=self.T, inference_window=self.inference_window)
 

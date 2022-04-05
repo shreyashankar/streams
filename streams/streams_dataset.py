@@ -148,7 +148,7 @@ class STREAMSDataset(object):
                     logits = self.sampling_logits[t].copy()
                     logits[~eligible] = -np.inf
                     probs = softmax(logits)
-
+                    
                     sample.extend(
                         np.random.choice(
                             self._n,
