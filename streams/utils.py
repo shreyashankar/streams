@@ -52,6 +52,7 @@ def create_logits(
     start_max: int = 10,  # highest value signal can take to start with
     duration: int = 1,
     log_step: int = 10,
+    starting_time_steps: typing.Dict[typing.Tuple[int, int], int] = {},
     seed: int = 0,
 ) -> typing.Tuple[typing.List[np.ndarray], typing.List[np.ndarray]]:
     """Creates logits and signals for T steps based on domain matrices.
@@ -62,6 +63,9 @@ def create_logits(
         gamma (float, optional): Defaults to 0.5.
         num_peaks (int, optional): Defaults to 5.
         start_max (int, optional): Defaults to 10.
+        starting_time_steps: A map of domain values to the timestep at which
+            their signal value can be non-zero. For sufficiently large
+            start_max, this precludes the chance of examples appearing early.
         seed (int, optional): Defaults to 0.
 
     Returns:
@@ -79,8 +83,12 @@ def create_logits(
 
     # signals in first period all set to same value for each domain type
     prev_s_vectors = [
-        [start_max / mat.shape[1]] * mat.shape[1] for mat in domain_matrices
+        [start_max / 2] * mat.shape[1] for mat in domain_matrices
     ]
+
+    for (i,j) in starting_time_steps:
+        if starting_time_steps[(i,j)] > 0:
+            prev_s_vectors[i][j] = 0
 
     prev_z = aggregate_min(
         [mat @ s for mat, s in zip(domain_matrices, prev_s_vectors)],
@@ -137,9 +145,16 @@ def create_logits(
             for i in range(m)
         ]
 
-        nonnegativity_constraints = [s_vectors[i] >= 0 for i in range(m)]
+        # signal values should be non-negative
+        nonnegativity_constraints = [s_vectors[i] >= 0 for i in range(m)]  + [s_vectors[i] <= start_max for i in range(m)]
 
-        all_constraints = smoothness_constraints + nonnegativity_constraints
+        # only allow certain signal values past a certain timestep
+        starting_time_step_constraints = [
+            s_vectors[i][j] == 0 for (i,j) in starting_time_steps.keys()
+            if starting_time_steps[(i,j)] > t
+        ]
+
+        all_constraints = smoothness_constraints + nonnegativity_constraints + starting_time_step_constraints
 
         # Solve the problem
         prob = cp.Problem(obj, all_constraints)

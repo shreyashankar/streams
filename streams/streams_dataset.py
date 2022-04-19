@@ -91,6 +91,7 @@ class STREAMSDataset(object):
         self.num_examples = sum(
             [len(x) for x in self.sample_history]
         )  # could be less than self._n
+        self.oracle_training_data = self._sample_oracle_training_data()
 
         self.reset()
 
@@ -114,16 +115,20 @@ class STREAMSDataset(object):
         return ret
 
     @staticmethod
-    def from_config(config_path: str) -> "STREAMSDataset":
+    def from_config(name: str) -> "STREAMSDataset":
         """Loads dataset from config file.
 
         Args:
-            config_path (str): Path to config file.
+            name (str): Path to config file OR name of
+                dataset.
 
         Returns:
             STREAMSDataset: Dataset loaded from config file.
         """
-        return STREAMSDataset(**joblib.load(config_path))
+        if name in supported_datasets:
+            return STREAMSDataset(**read_s3_config(name))
+
+        return STREAMSDataset(**joblib.load(name))
 
     def save_config(self, path: str) -> None:
         """Saves configuration of the stream.
@@ -134,6 +139,38 @@ class STREAMSDataset(object):
         os.makedirs(os.path.split(path)[0], exist_ok=True)
         with open(path, "wb") as f:
             joblib.dump(self.get_config(), f)
+
+    def _sample_oracle_training_data(self, train_to_test_ratio=2.0):
+        """Sample the oracle training data for each timestep from all the data
+        excluding that which has been sampled for the respective timestep 
+        (i.e., D \ D_t). Use the same probability distribution as that which was
+        used to sample D_t.
+
+        Args:
+            train_to_test_ratio: ratio of oracle training data to test data at
+                each timestep
+
+        Returns:
+            The oracle training data at each timestep, as a list of indices.
+        """
+        oracle_training_data = []
+
+        for t in range(self._T):
+            logits = self.sampling_logits[t].copy()
+            logits[self.sample_history[t]] = -np.inf
+            probs = softmax(logits)
+
+            oracle_training_data.append(
+                np.random.choice(
+                    self._n,
+                    p=probs,
+                    replace=False,
+                    size=min(self._n, int(len(self.sample_history[t]) * train_to_test_ratio))
+                ).tolist()
+            )
+
+        return oracle_training_data
+
 
     def _time_order(self, n_t: typing.List[int] = []) -> typing.List[np.ndarray]:
         """If user specifies a strict time ordering, then create the stream in
@@ -179,7 +216,7 @@ class STREAMSDataset(object):
                 for each timestep
 
         Returns:
-            List of samples for timesteps 1 .. T.
+            List of samples for timesteps 1 .. T, as a list of indices.
         """
         if n_t == []:
             n_t = [int(self._n / self._T)] * self._T
@@ -206,7 +243,7 @@ class STREAMSDataset(object):
                     logits = self.sampling_logits[t].copy()
                     logits[~eligible] = -np.inf
                     probs = softmax(logits)
-
+                    
                     sample.extend(
                         np.random.choice(
                             self._n,
