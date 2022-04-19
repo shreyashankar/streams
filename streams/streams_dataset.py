@@ -1,13 +1,15 @@
 import logging
+import os
 import typing
 
 import avalanche
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
 from streams.create_domain_matrices import name_to_func
-from streams.utils import create_logits, softmax
+from streams.utils import create_logits, read_s3_config, softmax
 
 supported_datasets = name_to_func.keys()
 
@@ -48,6 +50,7 @@ class STREAMSDataset(object):
         self._name = name  # TODO(shreyashankar): make properties
         self._inference_window = inference_window
         self._seed = seed
+
         logging.info(f"Creating dataset {name}")
         (
             self.dataset,
@@ -65,19 +68,26 @@ class STREAMSDataset(object):
 
         # Create probabilities
         if not use_time_ordering:
-            logging.info("Creating logits")
-            self.sampling_logits, self.signals = create_logits(
-                self.domain_matrices,
-                T=len(self.dataset) if T is None else T,
-                **kwargs,
-            )
+            if "sampling_logits" in kwargs:
+                self.sampling_logits = kwargs["sampling_logits"]
+                self.signals = kwargs["signals"]
+            else:
+                logging.info("Creating logits")
+                self.sampling_logits, self.signals = create_logits(
+                    self.domain_matrices,
+                    T=len(self.dataset) if T is None else T,
+                    **kwargs,
+                )
 
         # Create samples
-        self.sample_history = (
-            self._sample_without_replacement(n_t=n_t)
-            if not use_time_ordering
-            else self._time_order(n_t=n_t)
-        )
+        if "sample_history" in kwargs:
+            self.sample_history = kwargs["sample_history"]
+        else:
+            self.sample_history = (
+                self._sample_without_replacement(n_t=n_t)
+                if not use_time_ordering
+                else self._time_order(n_t=n_t)
+            )
         self.num_examples = sum(
             [len(x) for x in self.sample_history]
         )  # could be less than self._n
@@ -87,14 +97,12 @@ class STREAMSDataset(object):
 
     def _sample_oracle_training_data(self, train_to_test_ratio=2.0):
         """Sample the oracle training data for each timestep from all the data
-        excluding that which has been sampled for the respective timestep 
+        excluding that which has been sampled for the respective timestep
         (i.e., D \ D_t). Use the same probability distribution as that which was
         used to sample D_t.
-
         Args:
             train_to_test_ratio: ratio of oracle training data to test data at
                 each timestep
-
         Returns:
             The oracle training data at each timestep, as a list of indices.
         """
@@ -110,13 +118,63 @@ class STREAMSDataset(object):
                     self._n,
                     p=probs,
                     replace=False,
-                    size=min(self._n, int(len(self.sample_history[t]) * train_to_test_ratio))
+                    size=min(
+                        self._n,
+                        int(len(self.sample_history[t]) * train_to_test_ratio),
+                    ),
                 ).tolist()
             )
 
         return oracle_training_data
 
-    def _time_order(self, n_t: typing.List[int] = []) -> typing.List[np.ndarray]:
+    def get_config(self) -> dict:
+        """Gets configuraton of the stream.
+
+        Returns:
+            dict: Config serialized.
+        """
+        ret = {
+            "name": self._name,
+            "T": self._T,
+            "inference_window": self._inference_window,
+            "seed": self._seed,
+            "use_time_ordering": self.time_ordering is not None,
+            "sampling_logits": self.sampling_logits,
+            "signals": self.signals,
+            "sample_history": self.sample_history,
+        }
+
+        return ret
+
+    @staticmethod
+    def from_config(name: str) -> "STREAMSDataset":
+        """Loads dataset from config file.
+
+        Args:
+            name (str): Path to config file OR name of
+                dataset.
+
+        Returns:
+            STREAMSDataset: Dataset loaded from config file.
+        """
+        if name in supported_datasets:
+            return STREAMSDataset(**read_s3_config(name))
+
+        return STREAMSDataset(**joblib.load(name))
+
+    def save_config(self, path: str) -> None:
+        """Saves configuration of the stream.
+
+        Args:
+            path (str): Path to save configuration.
+        """
+        os.makedirs(os.path.split(path)[0], exist_ok=True)
+        with open(path, "wb") as f:
+            joblib.dump(self.get_config(), f)
+
+    def _time_order(
+        self, n_t: typing.List[int] = []
+    ) -> typing.List[np.ndarray]:
         """If user specifies a strict time ordering, then create the stream in
         this fashion.
 
@@ -160,14 +218,16 @@ class STREAMSDataset(object):
                 for each timestep
 
         Returns:
-            List of samples for timesteps 1 .. T, as a list of indices.
+            List of samples for timesteps 1 .. T.
         """
         if n_t == []:
             n_t = [int(self._n / self._T)] * self._T
             n_t[0] += self._n - sum(n_t)
 
         time_periods = (
-            self.time_periods if (self.time_periods is not None) else np.zeros(self._n)
+            self.time_periods
+            if (self.time_periods is not None)
+            else np.zeros(self._n)
         )
         remaining = np.ones(self._n)
         current_time_period = 0
@@ -187,7 +247,7 @@ class STREAMSDataset(object):
                     logits = self.sampling_logits[t].copy()
                     logits[~eligible] = -np.inf
                     probs = softmax(logits)
-                    
+
                     sample.extend(
                         np.random.choice(
                             self._n,
@@ -248,7 +308,9 @@ class STREAMSDataset(object):
 
         # Include test data
         test_dataset = self.get(
-            list(range(self._step + 1, self._step + 1 + self._inference_window)),
+            list(
+                range(self._step + 1, self._step + 1 + self._inference_window)
+            ),
             future_ok=True,
         )
         return train_dataset, test_dataset
@@ -258,7 +320,9 @@ class STREAMSDataset(object):
         batch_size: int = 64,
         shuffle: bool = True,
         include_test: bool = False,
-    ) -> typing.Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    ) -> typing.Tuple[
+        torch.utils.data.DataLoader, torch.utils.data.DataLoader
+    ]:
         """Dataloader wrapper around get_data.
 
         Args:
@@ -279,7 +343,9 @@ class STREAMSDataset(object):
         if not include_test:
             return train_dl, None
 
-        test_dl = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
+        test_dl = torch.utils.data.DataLoader(
+            test_dataset, batch_size=batch_size
+        )
         return train_dl, test_dl
 
     def get_benchmark(
@@ -298,7 +364,9 @@ class STREAMSDataset(object):
             )
             return benchmark
         except ValueError:
-            raise TypeError("Only classification tasks are supported by Avalanche.")
+            raise TypeError(
+                "Only classification tasks are supported by Avalanche."
+            )
 
     def advance(self, step_size: int = 1) -> None:
         """Advances the current timestep by step_size.
@@ -368,13 +436,17 @@ class STREAMSDataset(object):
                         + f" the current step is {self._step}."
                     )
 
-        data_indices = [i for t in step_indices for i in self.sample_history[t]]
+        data_indices = [
+            i for t in step_indices for i in self.sample_history[t]
+        ]
         return torch.utils.data.Subset(self.dataset, data_indices)
 
     def __len__(self) -> int:
         """Gets length of dataset."""
         return len(self.sample_history)
 
-    def __getitem__(self, step_indices: typing.List[int]) -> torch.utils.data.Dataset:
+    def __getitem__(
+        self, step_indices: typing.List[int]
+    ) -> torch.utils.data.Dataset:
         """Accesses data for given indices. Wraps get."""
         return self.get(step_indices, future_ok=False)
