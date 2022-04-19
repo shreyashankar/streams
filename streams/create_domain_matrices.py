@@ -47,12 +47,14 @@ def get_mnist(force_download: bool = False):
     for idx, elem in enumerate(dataset):
         domain_matrix[idx][elem[1]] = 1
 
-    return dataset, [domain_matrix], None
+    return dataset, [domain_matrix], None, None
 
 
 def get_iwildcam(
     force_download: bool = False, num_location_groups: int = 10
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """
     Retrieve and break down the IWildCam dataset along the time and location
     (camera ID) domain types.
@@ -66,6 +68,7 @@ def get_iwildcam(
         dataset: utils.FullDataset
         domain_matrices: list of np.ndarray
         time_periods: np.ndarray (or None, if time is not a domain)
+        time_ordering: np.ndarray representing time-based ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(dataset="iwildcam", download=True, root_dir=download_path)
@@ -101,13 +104,16 @@ def get_iwildcam(
 
     time_idx = raw_dataset.metadata_fields.index("month")
     time_periods = raw_dataset.metadata_array[:, time_idx].numpy()
+    time_ordering = df.sort_values(by="datetime", ascending=True).index.values
 
-    return dataset, [location_matrix], time_periods
+    return dataset, [location_matrix], time_periods, time_ordering
 
 
 def get_civil_comments(
     force_download: bool = False,
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Retrieves and preprocesses the Civil Comments dataset. Domains are
     gender, sexuality, race, religion, and disability.
 
@@ -116,9 +122,10 @@ def get_civil_comments(
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(
@@ -129,6 +136,7 @@ def get_civil_comments(
             download_path, "civilcomments_v1.0", "all_data_with_identities.csv"
         )
     )
+    df["created_date"] = pd.to_datetime(df["created_date"])
 
     all_cols = {
         "gender_cols": ["male", "female", "transgender", "other_gender"],
@@ -170,16 +178,21 @@ def get_civil_comments(
         matrices.append(matrix)
 
     publication_id_matrix = pd.get_dummies(df.publication_id).astype(int).values
+    last_col = (publication_id_matrix.sum(axis=1) == 0).astype(int).reshape(-1, 1)
+    publication_id_matrix = np.hstack([publication_id_matrix, last_col])
     matrices.append(publication_id_matrix)
 
     dataset = FullDataset(raw_dataset)
+    time_ordering = df.sort_values(by="created_date", ascending=True).index.values
 
-    return dataset, matrices, None
+    return dataset, matrices, None, time_ordering
 
 
 def get_poverty(
     force_download: bool = False,
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Retrieves and preprocesses the Poverty dataset. Domains are urban
     indicator and country.
 
@@ -188,9 +201,10 @@ def get_poverty(
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX)
     raw_dataset = get_dataset(dataset="poverty", download=True, root_dir=download_path)
@@ -200,12 +214,16 @@ def get_poverty(
     country_matrix = pd.get_dummies(df.country).astype(int).values
     dataset = FullDataset(raw_dataset)
 
-    return dataset, [urban_matrix, country_matrix], None
+    time_ordering = df.sort_values(by="year", ascending=True).index.values
+
+    return dataset, [urban_matrix, country_matrix], None, time_ordering
 
 
 def get_jeopardy(
     force_download: bool = False,
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Retrieves and preprocesses the Jeopardy dataset. Domains are question
     value amount and month of year.
 
@@ -214,9 +232,10 @@ def get_jeopardy(
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "jeopardy")
     command = (
@@ -247,7 +266,7 @@ def get_jeopardy(
         inplace=True,
     )
 
-    df = df.dropna(subset=["Value", "Category"])
+    df = df.dropna(subset=["Value", "Category"]).reset_index(drop=True)
 
     df["Category"] = df["Category"].astype(str).str.strip().str.lower()
     df["Value"] = df["Value"].astype(str).str.strip().str.lower()
@@ -258,12 +277,16 @@ def get_jeopardy(
     month_matrix = pd.get_dummies(df["Air Date"].dt.month).astype(int).values
 
     dataset = SimpleDataset(df, feature_cols=["Question"], label_cols=["Answer"])
-    return dataset, [value_matrix, month_matrix], None
+    time_ordering = df.sort_values(by=["Air Date"], ascending=True).index.values
+
+    return dataset, [value_matrix, month_matrix], None, time_ordering
 
 
 def get_air_quality(
     force_download: bool = False,
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Retrieves and preprocesses the Beijing Air Quality dataset.
     Domain is the station the measurement was taken from.
 
@@ -272,9 +295,10 @@ def get_air_quality(
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "air_quality")
     folder_path = os.path.join(download_path, "PRSA_Data_20130301-20170228")
@@ -341,12 +365,16 @@ def get_air_quality(
         "WSPM",
     ]
     dataset = RollingDataFrame(df, sensor_cols, "station")
-    return dataset, [station_matrix], timestamp_idx
+    time_ordering = timestamps.sort_values().index.values
+
+    return dataset, [station_matrix], timestamp_idx, time_ordering
 
 
 def get_zillow(
     force_download: bool = False,
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Retrieves and preprocesses the Zillow dataset. Domain is the
     metro / area.
 
@@ -355,9 +383,10 @@ def get_zillow(
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "zillow")
     file_paths = [
@@ -468,13 +497,16 @@ def get_zillow(
         label_cols=["sale_price"],
         metadata_cols=["RegionID", "sale_date"],
     )
+    time_ordering = merged.sort_values(by=["sale_date"], ascending=True).index.values
 
-    return dataset, [metro_matrix], sale_idx
+    return dataset, [metro_matrix], sale_idx, time_ordering
 
 
 def get_coauthor(
     force_download: bool = False,
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Retrieves and preprocesses the Coauthor dataset. Domains are worker
     ID and prompt category.
 
@@ -483,9 +515,10 @@ def get_coauthor(
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "coauthor")
     folder_path = os.path.join(download_path, "coauthor-v1.0")
@@ -561,11 +594,16 @@ def get_coauthor(
         label_cols=["next"],
         metadata_cols=["worker_id", "prompt_code"],
     )
+    time_ordering = full_df.sort_values(by="timestamp", ascending=True).index.values
 
-    return dataset, [worker_matrix, prompt_matrix], None
+    return dataset, [worker_matrix, prompt_matrix], None, time_ordering
 
 
-def get_census(force_download: bool = False):
+def get_census(
+    force_download: bool = False,
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Retrieves and preprocesses the Census dataset. Domains are
     race & state.
 
@@ -574,9 +612,10 @@ def get_census(force_download: bool = False):
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "census")
 
@@ -627,19 +666,22 @@ def get_census(force_download: bool = False):
         metadata_cols=["ST", "RAC1P"],
     )
 
-    return dataset, [race_matrix, state_matrix], None
+    return dataset, [race_matrix, state_matrix], None, None
 
 
 def get_test(
     force_download=False,
-) -> typing.Tuple[torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray]:
+) -> typing.Tuple[
+    torch.utils.data.Dataset, typing.List[np.ndarray], np.ndarray, np.ndarray
+]:
     """Testing utility function. Creates a fake dataset.
 
     Returns:
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
-            np.ndarray ]: Dataset, domain matrices of size (num_examples,
-            num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            np.ndarray, np.ndarray ]:
+            Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, time periods
+            (if time is a domain), and time ordering
     """
     df = pd.DataFrame(
         {
@@ -652,7 +694,7 @@ def get_test(
     matrix = pd.get_dummies(df["feat1"]).astype(int).values
     dataset = SimpleDataset(df, feature_cols=["feat1", "feat2"], label_cols=["label"])
 
-    return dataset, [matrix], None
+    return dataset, [matrix], None, None
 
 
 def get_nuimages(force_download=False):

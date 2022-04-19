@@ -1,13 +1,15 @@
 import logging
+import os
 import typing
 
 import avalanche
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
 from streams.create_domain_matrices import name_to_func
-from streams.utils import create_logits, softmax
+from streams.utils import create_logits, read_s3_config, softmax
 
 supported_datasets = name_to_func.keys()
 
@@ -19,6 +21,7 @@ class STREAMSDataset(object):
         T: int = None,
         inference_window: int = 1,
         seed: int = 42,
+        use_time_ordering: bool = False,
         force_download: bool = False,
         n_t: typing.List[int] = [],
         **kwargs,
@@ -32,6 +35,7 @@ class STREAMSDataset(object):
             inference_window (int, optional): Number of timesteps after current
                 time step that can be used for "testing." Defaults to 1.
             seed (int, optional): Random seed. Defaults to 42.
+            use_time_ordering (bool, optional): Whether to use time ordering.
             force_download (bool, optional): Whether to forcibly redownload the
                 dataset. Defaults to False.
             n_t (typing.List[int], optional): T-sized list with number of
@@ -44,14 +48,18 @@ class STREAMSDataset(object):
             raise ValueError(f"Dataset {name} is not supported")
 
         self._name = name  # TODO(shreyashankar): make properties
-        self._T = T
         self._inference_window = inference_window
         self._seed = seed
+
         logging.info(f"Creating dataset {name}")
-        self.dataset, self.domain_matrices, self.time_periods = name_to_func[
-            self._name
-        ](force_download)
+        (
+            self.dataset,
+            self.domain_matrices,
+            self.time_periods,
+            self.time_ordering,
+        ) = name_to_func[self._name](force_download)
         self._n = self.domain_matrices[0].shape[0]
+        self._T = T if T else self._n
 
         if self._n < self._T:
             raise ValueError("More timesteps than examples in dataset")
@@ -59,20 +67,141 @@ class STREAMSDataset(object):
         self.time_periods = None
 
         # Create probabilities
-        logging.info("Creating logits")
-        self.sampling_logits, self.signals = create_logits(
-            self.domain_matrices,
-            T=len(self.dataset) if T is None else T,
-            **kwargs,
-        )
+        if not use_time_ordering:
+            if "sampling_logits" in kwargs:
+                self.sampling_logits = kwargs["sampling_logits"]
+                self.signals = kwargs["signals"]
+            else:
+                logging.info("Creating logits")
+                self.sampling_logits, self.signals = create_logits(
+                    self.domain_matrices,
+                    T=len(self.dataset) if T is None else T,
+                    **kwargs,
+                )
 
         # Create samples
-        self.sample_history = self._sample_without_replacement(n_t=n_t)
+        if "sample_history" in kwargs:
+            self.sample_history = kwargs["sample_history"]
+        else:
+            self.sample_history = (
+                self._sample_without_replacement(n_t=n_t)
+                if not use_time_ordering
+                else self._time_order(n_t=n_t)
+            )
         self.num_examples = sum(
             [len(x) for x in self.sample_history]
         )  # could be less than self._n
+        self.oracle_training_data = self._sample_oracle_training_data()
 
         self.reset()
+
+    def _sample_oracle_training_data(self, train_to_test_ratio=2.0):
+        """Sample the oracle training data for each timestep from all the data
+        excluding that which has been sampled for the respective timestep
+        (i.e., D \ D_t). Use the same probability distribution as that which was
+        used to sample D_t.
+        Args:
+            train_to_test_ratio: ratio of oracle training data to test data at
+                each timestep
+        Returns:
+            The oracle training data at each timestep, as a list of indices.
+        """
+        oracle_training_data = []
+
+        for t in range(self._T):
+            logits = self.sampling_logits[t].copy()
+            logits[self.sample_history[t]] = -np.inf
+            probs = softmax(logits)
+
+            oracle_training_data.append(
+                np.random.choice(
+                    self._n,
+                    p=probs,
+                    replace=False,
+                    size=min(
+                        self._n,
+                        int(len(self.sample_history[t]) * train_to_test_ratio),
+                    ),
+                ).tolist()
+            )
+
+        return oracle_training_data
+
+    def get_config(self) -> dict:
+        """Gets configuraton of the stream.
+
+        Returns:
+            dict: Config serialized.
+        """
+        ret = {
+            "name": self._name,
+            "T": self._T,
+            "inference_window": self._inference_window,
+            "seed": self._seed,
+            "use_time_ordering": self.time_ordering is not None,
+            "sampling_logits": self.sampling_logits,
+            "signals": self.signals,
+            "sample_history": self.sample_history,
+        }
+
+        return ret
+
+    @staticmethod
+    def from_config(name: str) -> "STREAMSDataset":
+        """Loads dataset from config file.
+
+        Args:
+            name (str): Path to config file OR name of
+                dataset.
+
+        Returns:
+            STREAMSDataset: Dataset loaded from config file.
+        """
+        if name in supported_datasets:
+            return STREAMSDataset(**read_s3_config(name))
+
+        return STREAMSDataset(**joblib.load(name))
+
+    def save_config(self, path: str) -> None:
+        """Saves configuration of the stream.
+
+        Args:
+            path (str): Path to save configuration.
+        """
+        os.makedirs(os.path.split(path)[0], exist_ok=True)
+        with open(path, "wb") as f:
+            joblib.dump(self.get_config(), f)
+
+    def _time_order(
+        self, n_t: typing.List[int] = []
+    ) -> typing.List[np.ndarray]:
+        """If user specifies a strict time ordering, then create the stream in
+        this fashion.
+
+        Args:
+            n_t (optional): T-sized list with number of examples to be sampled
+                for each timestep
+
+        Returns:
+            List of samples for timesteps 1 .. T.
+        """
+        if self.time_ordering is None:
+            raise ValueError("No time ordering for this dataset.")
+
+        if n_t == []:
+            n_t = [int(self._n / self._T)] * self._T
+            n_t[0] += self._n - sum(n_t)
+
+        sample_history = []
+        seen = 0
+
+        for t in range(self._T):
+            goal = n_t[t]
+            sample = self.time_ordering[seen : seen + goal]
+            sample_history.append(sample)
+            seen += goal
+
+        return sample_history
 
     def _sample_without_replacement(
         self, n_t: typing.List[int] = []
@@ -96,7 +225,9 @@ class STREAMSDataset(object):
             n_t[0] += self._n - sum(n_t)
 
         time_periods = (
-            self.time_periods if (self.time_periods is not None) else np.zeros(self._n)
+            self.time_periods
+            if (self.time_periods is not None)
+            else np.zeros(self._n)
         )
         remaining = np.ones(self._n)
         current_time_period = 0
@@ -177,7 +308,9 @@ class STREAMSDataset(object):
 
         # Include test data
         test_dataset = self.get(
-            list(range(self._step + 1, self._step + 1 + self._inference_window)),
+            list(
+                range(self._step + 1, self._step + 1 + self._inference_window)
+            ),
             future_ok=True,
         )
         return train_dataset, test_dataset
@@ -187,7 +320,9 @@ class STREAMSDataset(object):
         batch_size: int = 64,
         shuffle: bool = True,
         include_test: bool = False,
-    ) -> typing.Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    ) -> typing.Tuple[
+        torch.utils.data.DataLoader, torch.utils.data.DataLoader
+    ]:
         """Dataloader wrapper around get_data.
 
         Args:
@@ -208,7 +343,9 @@ class STREAMSDataset(object):
         if not include_test:
             return train_dl, None
 
-        test_dl = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
+        test_dl = torch.utils.data.DataLoader(
+            test_dataset, batch_size=batch_size
+        )
         return train_dl, test_dl
 
     def get_benchmark(
@@ -227,7 +364,9 @@ class STREAMSDataset(object):
             )
             return benchmark
         except ValueError:
-            raise TypeError("Only classification tasks are supported by Avalanche.")
+            raise TypeError(
+                "Only classification tasks are supported by Avalanche."
+            )
 
     def advance(self, step_size: int = 1) -> None:
         """Advances the current timestep by step_size.
@@ -297,13 +436,17 @@ class STREAMSDataset(object):
                         + f" the current step is {self._step}."
                     )
 
-        data_indices = [i for t in step_indices for i in self.sample_history[t]]
+        data_indices = [
+            i for t in step_indices for i in self.sample_history[t]
+        ]
         return torch.utils.data.Subset(self.dataset, data_indices)
 
     def __len__(self) -> int:
         """Gets length of dataset."""
         return len(self.sample_history)
 
-    def __getitem__(self, step_indices: typing.List[int]) -> torch.utils.data.Dataset:
+    def __getitem__(
+        self, step_indices: typing.List[int]
+    ) -> torch.utils.data.Dataset:
         """Accesses data for given indices. Wraps get."""
         return self.get(step_indices, future_ok=False)

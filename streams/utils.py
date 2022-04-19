@@ -1,9 +1,12 @@
 """Utility functions for creating streams."""
 
+import io
+import joblib
 import logging
 import os
 import random
 import re
+import requests
 import typing
 from datetime import datetime
 
@@ -16,7 +19,9 @@ import torchvision.transforms as transforms
 from PIL import Image
 
 
-def aggregate_min(arrays: typing.List[np.ndarray], use_cvx: bool = True) -> np.ndarray:
+def aggregate_min(
+    arrays: typing.List[np.ndarray], use_cvx: bool = True
+) -> np.ndarray:
     """Takes the minimum across all arrays.
 
     Args:
@@ -29,7 +34,11 @@ def aggregate_min(arrays: typing.List[np.ndarray], use_cvx: bool = True) -> np.n
     res = arrays[0]
 
     for i in range(1, len(arrays)):
-        res = cp.minimum(res, arrays[i]) if use_cvx else np.minimum(res, arrays[i])
+        res = (
+            cp.minimum(res, arrays[i])
+            if use_cvx
+            else np.minimum(res, arrays[i])
+        )
 
     return res
 
@@ -55,6 +64,7 @@ def create_logits(
     start_max: int = 10,  # highest value signal can take to start with
     duration: int = 1,
     log_step: int = 10,
+    starting_time_steps: typing.Dict[typing.Tuple[int, int], int] = {},
     seed: int = 0,
 ) -> typing.Tuple[typing.List[np.ndarray], typing.List[np.ndarray]]:
     """Creates logits and signals for T steps based on domain matrices.
@@ -65,6 +75,9 @@ def create_logits(
         gamma (float, optional): Defaults to 0.5.
         num_peaks (int, optional): Defaults to 5.
         start_max (int, optional): Defaults to 10.
+        starting_time_steps: A map of domain values to the timestep at which
+            their signal value can be non-zero. For sufficiently large
+            start_max, this precludes the chance of examples appearing early.
         seed (int, optional): Defaults to 0.
 
     Returns:
@@ -82,8 +95,12 @@ def create_logits(
 
     # signals in first period all set to same value for each domain type
     prev_s_vectors = [
-        [start_max / mat.shape[1]] * mat.shape[1] for mat in domain_matrices
+        [start_max / 2] * mat.shape[1] for mat in domain_matrices
     ]
+
+    for (i, j) in starting_time_steps:
+        if starting_time_steps[(i, j)] > 0:
+            prev_s_vectors[i][j] = 0
 
     prev_z = aggregate_min(
         [mat @ s for mat, s in zip(domain_matrices, prev_s_vectors)],
@@ -103,13 +120,17 @@ def create_logits(
         s_vectors = [cp.Variable(mat.shape[1]) for mat in domain_matrices]
 
         # z is concave in optimization variable s
-        z = aggregate_min([mat @ s for mat, s in zip(domain_matrices, s_vectors)])
+        z = aggregate_min(
+            [mat @ s for mat, s in zip(domain_matrices, s_vectors)]
+        )
 
         # convex alternative to z (take mean instead of min over domain types)
         pseudo_z = (
             1
             / m
-            * cp.sum([mat @ s for mat, s in zip(domain_matrices, s_vectors)], axis=1)
+            * cp.sum(
+                [mat @ s for mat, s in zip(domain_matrices, s_vectors)], axis=1
+            )
         )
 
         # instead of maximizing KL divergence with prev_p (not convex)
@@ -126,7 +147,8 @@ def create_logits(
             p_star = softmax(p_star)
 
         obj = cp.Minimize(
-            -1 * (p_star @ (np.log(c) + z - cp.log_sum_exp(pseudo_z + np.log(c))))
+            -1
+            * (p_star @ (np.log(c) + z - cp.log_sum_exp(pseudo_z + np.log(c))))
         )
 
         # prevent rapid changes from one timestep to another using L2 norm
@@ -140,9 +162,23 @@ def create_logits(
             for i in range(m)
         ]
 
-        nonnegativity_constraints = [s_vectors[i] >= 0 for i in range(m)]
+        # signal values should be non-negative
+        nonnegativity_constraints = [s_vectors[i] >= 0 for i in range(m)] + [
+            s_vectors[i] <= start_max for i in range(m)
+        ]
 
-        all_constraints = smoothness_constraints + nonnegativity_constraints
+        # only allow certain signal values past a certain timestep
+        starting_time_step_constraints = [
+            s_vectors[i][j] == 0
+            for (i, j) in starting_time_steps.keys()
+            if starting_time_steps[(i, j)] > t
+        ]
+
+        all_constraints = (
+            smoothness_constraints
+            + nonnegativity_constraints
+            + starting_time_step_constraints
+        )
 
         # Solve the problem
         prob = cp.Problem(obj, all_constraints)
@@ -221,7 +257,9 @@ class SimpleDataset(torch.utils.data.Dataset):
         self.transform = transform
         self.df = df
         self.feature_cols = feature_cols
-        self.label_cols = label_cols if label_cols is not None else self.feature_cols
+        self.label_cols = (
+            label_cols if label_cols is not None else self.feature_cols
+        )
         self.targets = self.df[self.label_cols].values
         self.metadata_cols = metadata_cols
 
@@ -266,7 +304,9 @@ class RollingDataFrame(torch.utils.data.Dataset):
         self.df = df
         self.feature_cols = feature_cols
         self.group_col = group_col
-        self.label_cols = label_cols if label_cols is not None else self.feature_cols
+        self.label_cols = (
+            label_cols if label_cols is not None else self.feature_cols
+        )
         self.targets = self.df[self.label_cols].values
         self.metadata_cols = metadata_cols
 
@@ -346,7 +386,9 @@ class NuImagesDataset(torch.utils.data.Dataset):
 # UTILITY FUNCTIONS FOR COAUTHOR
 
 
-def apply_ops(doc: str, mask: str, ops: list, source: str) -> typing.Tuple[str, str]:
+def apply_ops(
+    doc: str, mask: str, ops: list, source: str
+) -> typing.Tuple[str, str]:
     """Applies quilljs operations on a string. Taken
     from the CoAuthor website.
 
@@ -472,7 +514,9 @@ def get_prompts_and_completions(
         # If the last char of text is a space, add it to texts
         if len(text) > 0 and text[-1] == " ":
             current_completion = get_completion(text, mask).strip()
-            if current_completion != "" and re.search("[a-zA-Z]", current_completion):
+            if current_completion != "" and re.search(
+                "[a-zA-Z]", current_completion
+            ):
                 texts.append(current_completion)
                 timestamps.append(event["eventTimestamp"])
 
@@ -518,3 +562,20 @@ def adult_filter(data: pd.DataFrame) -> pd.DataFrame:
     df = df[df["WKHP"] > 0]
     df = df[df["PWGTP"] >= 1]
     return df
+
+
+def read_s3_config(name: str) -> dict:
+    """Reads a config file from S3.
+
+    Args:
+        name (str): Name of config file.
+
+    Returns:
+        dict: Config file.
+    """
+
+    url = f"https://ocl-benchmarks.s3.us-west-1.amazonaws.com/configs/{name}.joblib"
+    response = requests.get(url)
+    data = io.BytesIO(response.content)
+    data.seek(0)
+    return joblib.load(data)
