@@ -91,8 +91,41 @@ class STREAMSDataset(object):
         self.num_examples = sum(
             [len(x) for x in self.sample_history]
         )  # could be less than self._n
+        self.oracle_training_data = self._sample_oracle_training_data()
 
         self.reset()
+
+    def _sample_oracle_training_data(self, train_to_test_ratio=2.0):
+        """Sample the oracle training data for each timestep from all the data
+        excluding that which has been sampled for the respective timestep
+        (i.e., D \ D_t). Use the same probability distribution as that which was
+        used to sample D_t.
+        Args:
+            train_to_test_ratio: ratio of oracle training data to test data at
+                each timestep
+        Returns:
+            The oracle training data at each timestep, as a list of indices.
+        """
+        oracle_training_data = []
+
+        for t in range(self._T):
+            logits = self.sampling_logits[t].copy()
+            logits[self.sample_history[t]] = -np.inf
+            probs = softmax(logits)
+
+            oracle_training_data.append(
+                np.random.choice(
+                    self._n,
+                    p=probs,
+                    replace=False,
+                    size=min(
+                        self._n,
+                        int(len(self.sample_history[t]) * train_to_test_ratio),
+                    ),
+                ).tolist()
+            )
+
+        return oracle_training_data
 
     def get_config(self) -> dict:
         """Gets configuraton of the stream.
@@ -139,7 +172,9 @@ class STREAMSDataset(object):
         with open(path, "wb") as f:
             joblib.dump(self.get_config(), f)
 
-    def _time_order(self, n_t: typing.List[int] = []) -> typing.List[np.ndarray]:
+    def _time_order(
+        self, n_t: typing.List[int] = []
+    ) -> typing.List[np.ndarray]:
         """If user specifies a strict time ordering, then create the stream in
         this fashion.
 
@@ -190,7 +225,9 @@ class STREAMSDataset(object):
             n_t[0] += self._n - sum(n_t)
 
         time_periods = (
-            self.time_periods if (self.time_periods is not None) else np.zeros(self._n)
+            self.time_periods
+            if (self.time_periods is not None)
+            else np.zeros(self._n)
         )
         remaining = np.ones(self._n)
         current_time_period = 0
@@ -271,7 +308,9 @@ class STREAMSDataset(object):
 
         # Include test data
         test_dataset = self.get(
-            list(range(self._step + 1, self._step + 1 + self._inference_window)),
+            list(
+                range(self._step + 1, self._step + 1 + self._inference_window)
+            ),
             future_ok=True,
         )
         return train_dataset, test_dataset
@@ -281,7 +320,9 @@ class STREAMSDataset(object):
         batch_size: int = 64,
         shuffle: bool = True,
         include_test: bool = False,
-    ) -> typing.Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    ) -> typing.Tuple[
+        torch.utils.data.DataLoader, torch.utils.data.DataLoader
+    ]:
         """Dataloader wrapper around get_data.
 
         Args:
@@ -302,7 +343,9 @@ class STREAMSDataset(object):
         if not include_test:
             return train_dl, None
 
-        test_dl = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
+        test_dl = torch.utils.data.DataLoader(
+            test_dataset, batch_size=batch_size
+        )
         return train_dl, test_dl
 
     def get_benchmark(
@@ -321,7 +364,9 @@ class STREAMSDataset(object):
             )
             return benchmark
         except ValueError:
-            raise TypeError("Only classification tasks are supported by Avalanche.")
+            raise TypeError(
+                "Only classification tasks are supported by Avalanche."
+            )
 
     def advance(self, step_size: int = 1) -> None:
         """Advances the current timestep by step_size.
@@ -391,13 +436,17 @@ class STREAMSDataset(object):
                         + f" the current step is {self._step}."
                     )
 
-        data_indices = [i for t in step_indices for i in self.sample_history[t]]
+        data_indices = [
+            i for t in step_indices for i in self.sample_history[t]
+        ]
         return torch.utils.data.Subset(self.dataset, data_indices)
 
     def __len__(self) -> int:
         """Gets length of dataset."""
         return len(self.sample_history)
 
-    def __getitem__(self, step_indices: typing.List[int]) -> torch.utils.data.Dataset:
+    def __getitem__(
+        self, step_indices: typing.List[int]
+    ) -> torch.utils.data.Dataset:
         """Accesses data for given indices. Wraps get."""
         return self.get(step_indices, future_ok=False)
