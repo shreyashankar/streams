@@ -708,23 +708,20 @@ def get_nuimages(force_download=False):
         typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
             np.ndarray ]: Dataset, domain matrices of size (num_examples,
             num_domain_vals) for each domain, and time periods
-            (if time is a domain)
+            (if time is a domain), and time ordering
     """
-    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "nuscenes")
+    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "nuimages")
 
     # TODO(shreyashankar): Download full dataset instead of mini
+    # nuimages-v1.0-all-metadata.tgz and nuimages-v1.0-all-samples.tgz
     if force_download or not os.path.exists(download_path):
-        logging.debug("Downloading nuscenes images data")
-        res = requests.get(
-            "https://www.nuscenes.org/data/nuimages-v1.0-mini.tgz",
-            stream=True,
+        raise FileNotFoundError(
+            "Please download the dataset into a nuimages folder in your streams_data directory. Download metadata (US) and samples (US) from https://www.nuscenes.org/nuimages#download. The nuimages folder should contain samples, v1.0-mini, v1.0-train, v1.0-val, and v1.0-test folders."
         )
-        with tarfile.open(fileobj=io.BytesIO(res.content)) as ref:
-            ref.extractall(download_path)
 
     nuim = NuImages(
         dataroot=download_path,
-        version="v1.0-mini",
+        version="v1.0-train",
         lazy=True,
     )
 
@@ -771,7 +768,12 @@ def get_nuimages(force_download=False):
         download_path,
     )
 
-    return dataset, [modality_matrix, location_matrix, vehicle_matrix], None
+    return (
+        dataset,
+        [modality_matrix, location_matrix, vehicle_matrix],
+        None,
+        None,
+    )
 
 
 name_to_func = {
