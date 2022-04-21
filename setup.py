@@ -25,6 +25,7 @@ setup(
         "folktables",
         "kaggle",
         "matplotlib",
+        "nuscenes-devkit",
         "numpy",
         "pandas",
         "pre-commit",

@@ -3,9 +3,12 @@ import json
 import logging
 import os
 import subprocess
+import tarfile
 import typing
 import zipfile
 from pathlib import Path
+from turtle import down
+from unicodedata import category
 
 import folktables
 import numpy as np
@@ -14,11 +17,13 @@ import requests
 import torch
 import torchvision.transforms as transforms
 from dotenv import load_dotenv
+from nuimages import NuImages
 from torchvision import datasets
 from wilds import get_dataset
 
-from streams.utils import (FullDataset, RollingDataFrame, SimpleDataset,
-                           adult_filter, get_prompts_and_completions)
+from streams.utils import (FullDataset, NuImagesDataset, RollingDataFrame,
+                           SimpleDataset, adult_filter,
+                           get_prompts_and_completions)
 
 load_dotenv()
 DOWNLOAD_PREFIX = (
@@ -692,6 +697,85 @@ def get_test(
     return dataset, [matrix], None, None
 
 
+def get_nuimages(force_download=False):
+    """Retrieves and preprocesses the NuImages dataset. Domains are
+    modality, location, and vehicle ID.
+
+    Args:
+        force_download (bool, optional): Defaults to False.
+
+    Returns:
+        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],
+            np.ndarray ]: Dataset, domain matrices of size (num_examples,
+            num_domain_vals) for each domain, and time periods
+            (if time is a domain), and time ordering
+    """
+    download_path = os.path.join(HOME, DOWNLOAD_PREFIX, "nuimages")
+
+    # TODO(shreyashankar): Download full dataset instead of mini
+    # nuimages-v1.0-all-metadata.tgz and nuimages-v1.0-all-samples.tgz
+    if force_download or not os.path.exists(download_path):
+        raise FileNotFoundError(
+            "Please download the dataset into a nuimages folder in your streams_data directory. Download metadata (US) and samples (US) from https://www.nuscenes.org/nuimages#download. The nuimages folder should contain samples, v1.0-mini, v1.0-train, v1.0-val, and v1.0-test folders."
+        )
+
+    nuim = NuImages(
+        dataroot=download_path,
+        version="v1.0-train",
+        lazy=True,
+    )
+
+    # Create domain matrices
+    modalities = []
+    locations = []
+    vehicles = []
+    categories = []
+
+    for data in nuim.object_ann:
+        categories.append(data["category_token"])
+        modalities.append(
+            nuim.get(
+                "sensor",
+                nuim.get(
+                    "calibrated_sensor",
+                    nuim.get("sample_data", data["sample_data_token"])[
+                        "calibrated_sensor_token"
+                    ],
+                )["sensor_token"],
+            )["modality"]
+        )
+        log = nuim.get(
+            "log",
+            nuim.get(
+                "sample",
+                nuim.get("sample_data", data["sample_data_token"])["sample_token"],
+            )["log_token"],
+        )
+        locations.append(log["location"])
+        vehicles.append(log["vehicle"])
+
+    modality_matrix = pd.get_dummies(modalities).astype(int).values
+    location_matrix = pd.get_dummies(locations).astype(int).values
+    vehicle_matrix = pd.get_dummies(vehicles).astype(int).values
+
+    # Create dataset and labels
+    distinct_labels = list(np.unique(categories))
+    labels = [distinct_labels.index(x) for x in categories]
+    dataset = NuImagesDataset(
+        nuim,
+        labels,
+        {"modality": modalities, "location": locations, "vehicle": vehicles},
+        download_path,
+    )
+
+    return (
+        dataset,
+        [modality_matrix, location_matrix, vehicle_matrix],
+        None,
+        None,
+    )
+
+
 name_to_func = {
     "mnist": get_mnist,
     "iwildcam": get_iwildcam,
@@ -703,4 +787,5 @@ name_to_func = {
     "coauthor": get_coauthor,
     "test": get_test,
     "census": get_census,
+    "nuimages": get_nuimages,
 }

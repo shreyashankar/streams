@@ -1,24 +1,25 @@
 """Utility functions for creating streams."""
 
 import io
-import joblib
 import logging
+import os
 import random
 import re
-import requests
 import typing
 from datetime import datetime
 
 import cvxpy as cp
+import joblib
+import nuimages
 import numpy as np
 import pandas as pd
+import requests
 import torch
 import torchvision.transforms as transforms
+from PIL import Image
 
 
-def aggregate_min(
-    arrays: typing.List[np.ndarray], use_cvx: bool = True
-) -> np.ndarray:
+def aggregate_min(arrays: typing.List[np.ndarray], use_cvx: bool = True) -> np.ndarray:
     """Takes the minimum across all arrays.
 
     Args:
@@ -31,11 +32,7 @@ def aggregate_min(
     res = arrays[0]
 
     for i in range(1, len(arrays)):
-        res = (
-            cp.minimum(res, arrays[i])
-            if use_cvx
-            else np.minimum(res, arrays[i])
-        )
+        res = cp.minimum(res, arrays[i]) if use_cvx else np.minimum(res, arrays[i])
 
     return res
 
@@ -91,9 +88,7 @@ def create_logits(
     random.seed(seed)
 
     # signals in first period all set to same value for each domain type
-    prev_s_vectors = [
-        [start_max / 2] * mat.shape[1] for mat in domain_matrices
-    ]
+    prev_s_vectors = [[start_max / 2] * mat.shape[1] for mat in domain_matrices]
 
     for (i, j) in starting_time_steps:
         if starting_time_steps[(i, j)] > 0:
@@ -117,17 +112,13 @@ def create_logits(
         s_vectors = [cp.Variable(mat.shape[1]) for mat in domain_matrices]
 
         # z is concave in optimization variable s
-        z = aggregate_min(
-            [mat @ s for mat, s in zip(domain_matrices, s_vectors)]
-        )
+        z = aggregate_min([mat @ s for mat, s in zip(domain_matrices, s_vectors)])
 
         # convex alternative to z (take mean instead of min over domain types)
         pseudo_z = (
             1
             / m
-            * cp.sum(
-                [mat @ s for mat, s in zip(domain_matrices, s_vectors)], axis=1
-            )
+            * cp.sum([mat @ s for mat, s in zip(domain_matrices, s_vectors)], axis=1)
         )
 
         # instead of maximizing KL divergence with prev_p (not convex)
@@ -144,8 +135,7 @@ def create_logits(
             p_star = softmax(p_star)
 
         obj = cp.Minimize(
-            -1
-            * (p_star @ (np.log(c) + z - cp.log_sum_exp(pseudo_z + np.log(c))))
+            -1 * (p_star @ (np.log(c) + z - cp.log_sum_exp(pseudo_z + np.log(c))))
         )
 
         # prevent rapid changes from one timestep to another using L2 norm
@@ -254,9 +244,7 @@ class SimpleDataset(torch.utils.data.Dataset):
         self.transform = transform
         self.df = df
         self.feature_cols = feature_cols
-        self.label_cols = (
-            label_cols if label_cols is not None else self.feature_cols
-        )
+        self.label_cols = label_cols if label_cols is not None else self.feature_cols
         self.targets = self.df[self.label_cols].values
         self.metadata_cols = metadata_cols
 
@@ -301,9 +289,7 @@ class RollingDataFrame(torch.utils.data.Dataset):
         self.df = df
         self.feature_cols = feature_cols
         self.group_col = group_col
-        self.label_cols = (
-            label_cols if label_cols is not None else self.feature_cols
-        )
+        self.label_cols = label_cols if label_cols is not None else self.feature_cols
         self.targets = self.df[self.label_cols].values
         self.metadata_cols = metadata_cols
 
@@ -330,12 +316,60 @@ class RollingDataFrame(torch.utils.data.Dataset):
         return x, y
 
 
+class NuImagesDataset(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        nuim: nuimages.nuimages.NuImages,
+        labels: typing.List[int],
+        metadata: dict,
+        prefix: str,
+        transform=None,
+    ):
+        """PyTorch dataset for NuImages.
+
+        Args:
+            nuim (nuimages.nuimages.NuImages): nuimages dataset.
+            labels (typing.List[int]): List of labels.
+            metadata (dict): Dictionary of modality, location, vehicle lists.
+            prefix (str): Prefix for image filenames.
+            transform: Torch transform. Defaults to None.
+        """
+        self.nuim = nuim
+        self.metadata = metadata
+        self.transform = transform
+        self.targets = labels
+        self.prefix = prefix
+
+    def __len__(self):
+        return len(self.targets)
+
+    def __getitem__(self, idx):
+        ann = self.nuim.object_ann[idx]
+        category = self.nuim.get("category", ann["category_token"])
+        sample_data = self.nuim.get("sample_data", ann["sample_data_token"])
+
+        # Things to return
+        filename = sample_data["filename"]
+        bbox = ann["bbox"]
+        category_name = category["name"]
+        metadata = {key: self.metadata[key][idx] for key in self.metadata}
+
+        full_path = os.path.join(self.prefix, filename)
+        image = Image.open(full_path)
+        x = transforms.Compose([transforms.PILToTensor()])(image)
+
+        if self.transform is not None:
+            x = self.transform(x)
+
+        y = torch.tensor(self.targets[idx])
+
+        return x, y, bbox, category_name, metadata
+
+
 # UTILITY FUNCTIONS FOR COAUTHOR
 
 
-def apply_ops(
-    doc: str, mask: str, ops: list, source: str
-) -> typing.Tuple[str, str]:
+def apply_ops(doc: str, mask: str, ops: list, source: str) -> typing.Tuple[str, str]:
     """Applies quilljs operations on a string. Taken
     from the CoAuthor website.
 
@@ -461,9 +495,7 @@ def get_prompts_and_completions(
         # If the last char of text is a space, add it to texts
         if len(text) > 0 and text[-1] == " ":
             current_completion = get_completion(text, mask).strip()
-            if current_completion != "" and re.search(
-                "[a-zA-Z]", current_completion
-            ):
+            if current_completion != "" and re.search("[a-zA-Z]", current_completion):
                 texts.append(current_completion)
                 timestamps.append(event["eventTimestamp"])
 
