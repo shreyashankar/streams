@@ -642,11 +642,14 @@ def get_census(
 
     # Download data
     data_source = folktables.ACSDataSource(
-        survey_year="2018", horizon="1-Year", survey="person"
+        survey_year="2018",
+        horizon="1-Year",
+        survey="person",
+        root_dir=download_path,
     )
     if force_download or not os.path.exists(download_path):
         logging.debug("Downloading Census data")
-        acs_data = data_source.get_data(root_dir=download_path, dowload=True)
+        acs_data = data_source.get_data(download=True)
 
     else:
         acs_data = data_source.get_data(download=False)
