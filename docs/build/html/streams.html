@@ -1,0 +1,866 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>streams package &#8212; streamscl 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <section id="streams-package">
+<h1>streams package<a class="headerlink" href="#streams-package" title="Permalink to this headline">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="module-streams.create_domain_matrices">
+<span id="streams-create-domain-matrices-module"></span><h2>streams.create_domain_matrices module<a class="headerlink" href="#module-streams.create_domain_matrices" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_air_quality">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_air_quality</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_air_quality"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_air_quality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the Beijing Air Quality dataset.
+Domain is the station the measurement was taken from.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_census">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_census</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_census"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_census" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the Census dataset. Domains are
+race &amp; state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_civil_comments">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_civil_comments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_civil_comments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_civil_comments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the Civil Comments dataset. Domains are
+gender, sexuality, race, religion, and disability.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_coauthor">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_coauthor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_coauthor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_coauthor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the Coauthor dataset. Domains are worker
+ID and prompt category.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_iwildcam">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_iwildcam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_location_groups</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_iwildcam"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_iwildcam" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve and break down the IWildCam dataset along the time and location
+(camera ID) domain types.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>num_location_groups</strong> – how many values there should be for the “location”
+domain type (e.g., if 10, then allocate the 300+ camera IDs into 10
+groups)</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>utils.FullDataset
+domain_matrices: list of np.ndarray
+time_periods: np.ndarray (or None, if time is not a domain)
+time_ordering: np.ndarray representing time-based ordering</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_jeopardy">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_jeopardy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_jeopardy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_jeopardy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the Jeopardy dataset. Domains are question
+value amount and month of year.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_mnist">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_mnist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_mnist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_mnist" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_nuimages">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_nuimages</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_nuimages"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_nuimages" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the NuImages dataset. Domains are
+modality, location, and vehicle ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray ]: Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, and time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_poverty">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_poverty</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_poverty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_poverty" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the Poverty dataset. Domains are urban
+indicator and country.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_test">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_test" title="Permalink to this definition">¶</a></dt>
+<dd><p>Testing utility function. Creates a fake dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.create_domain_matrices.get_zillow">
+<span class="sig-prename descclassname"><span class="pre">streams.create_domain_matrices.</span></span><span class="sig-name descname"><span class="pre">get_zillow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/create_domain_matrices.html#get_zillow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.create_domain_matrices.get_zillow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves and preprocesses the Zillow dataset. Domain is the
+metro / area.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>force_download</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</dt><dd><p>np.ndarray, np.ndarray ]:
+Dataset, domain matrices of size (num_examples,
+num_domain_vals) for each domain, time periods
+(if time is a domain), and time ordering</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-streams.streams_dataset">
+<span id="streams-streams-dataset-module"></span><h2>streams.streams_dataset module<a class="headerlink" href="#module-streams.streams_dataset" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">streams.streams_dataset.</span></span><span class="sig-name descname"><span class="pre">STREAMSDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inference_window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_time_ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.T">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">T</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.T" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.advance">
+<span class="sig-name descname"><span class="pre">advance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.advance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.advance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Advances the current timestep by step_size.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>step_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 1.</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If step_size is negative or outside dataset length.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.from_config">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#streams.streams_dataset.STREAMSDataset" title="streams.streams_dataset.STREAMSDataset"><span class="pre">streams.streams_dataset.STREAMSDataset</span></a></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.from_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads dataset from config file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – Path to config file OR name of
+dataset.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Dataset loaded from config file.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#streams.streams_dataset.STREAMSDataset" title="streams.streams_dataset.STREAMSDataset">STREAMSDataset</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">future_ok</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.utils.data.dataset.Dataset</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets data for given indices. Reads into permutation and then
+accesses the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>step_indices</strong> (<em>List</em><em>[</em><em>int</em><em>]</em>) – Indices to get data for.</p></li>
+<li><p><strong>future_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether it’s ok to get data after
+current step. Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If indices are beyond current step.</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>torch.utils.data.Dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.get_benchmark">
+<span class="sig-name descname"><span class="pre">get_benchmark</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">avalanche.benchmarks.scenarios.new_instances.ni_scenario.NIScenario</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_benchmark"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.get_benchmark" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets data until current step as avalanche benchmark.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.get_config">
+<span class="sig-name descname"><span class="pre">get_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.get_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets configuraton of the stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Config serialized.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.get_data">
+<span class="sig-name descname"><span class="pre">get_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">include_test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.get_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns data in the current step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>include_test</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to include inference data.
+Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>“Train” and test datasets.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><em>Tuple</em>[torch.utils.data.Dataset, torch.utils.data.Dataset]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.get_loaders">
+<span class="sig-name descname"><span class="pre">get_loaders</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">64</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_test</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataloader.DataLoader</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">torch.utils.data.dataloader.DataLoader</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_loaders"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.get_loaders" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dataloader wrapper around get_data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 64.</p></li>
+<li><p><strong>shuffle</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to True.</p></li>
+<li><p><strong>include_test</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to include inference data.
+Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.DataLoader,</dt><dd><p>torch.utils.data.DataLoader ]: Dataloaders wrapped around the
+datasets from get_data.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets current time step back to 0.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.save_config">
+<span class="sig-name descname"><span class="pre">save_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.save_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.save_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves configuration of the stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to save configuration.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.seed">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">seed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.seed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.step">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.step" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.streams_dataset.STREAMSDataset.visualize">
+<span class="sig-name descname"><span class="pre">visualize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain_type_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain_value_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.visualize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.streams_dataset.STREAMSDataset.visualize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns plot of signals for domain index and values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>domain_type_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 0.</p></li>
+<li><p><strong>domain_value_indices</strong> (<em>list</em><em>, </em><em>optional</em>) – Defaults to None.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-streams.utils">
+<span id="streams-utils-module"></span><h2>streams.utils module<a class="headerlink" href="#module-streams.utils" title="Permalink to this headline">¶</a></h2>
+<p>Utility functions for creating streams.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="streams.utils.FullDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">FullDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform:</span> <span class="pre">&lt;module</span> <span class="pre">'torchvision.transforms.transforms'</span> <span class="pre">from</span> <span class="pre">'/Users/shreyashankar/miniforge3/envs/ttb/lib/python3.9/site-packages/torchvision/transforms/transforms.py'&gt;</span> <span class="pre">=</span> <span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/utils.html#FullDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.FullDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="streams.utils.NuImagesDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">NuImagesDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nuim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">nuimages.nuimages.NuImages</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/utils.html#NuImagesDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.NuImagesDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="streams.utils.RollingDataFrame">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">RollingDataFrame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">df:</span> <span class="pre">pandas.core.frame.DataFrame,</span> <span class="pre">feature_cols:</span> <span class="pre">typing.List[str],</span> <span class="pre">group_col:</span> <span class="pre">str,</span> <span class="pre">label_cols:</span> <span class="pre">typing.List[str]</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">metadata_cols:</span> <span class="pre">typing.List[str]</span> <span class="pre">=</span> <span class="pre">[],</span> <span class="pre">transform:</span> <span class="pre">&lt;module</span> <span class="pre">'torchvision.transforms.transforms'</span> <span class="pre">from</span> <span class="pre">'/Users/shreyashankar/miniforge3/envs/ttb/lib/python3.9/site-packages/torchvision/transforms/transforms.py'&gt;</span> <span class="pre">=</span> <span class="pre">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/utils.html#RollingDataFrame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.RollingDataFrame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="streams.utils.SimpleDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">SimpleDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">df:</span> <span class="pre">pandas.core.frame.DataFrame,</span> <span class="pre">feature_cols:</span> <span class="pre">typing.List[str],</span> <span class="pre">label_cols:</span> <span class="pre">typing.List[str],</span> <span class="pre">metadata_cols:</span> <span class="pre">typing.List[str]</span> <span class="pre">=</span> <span class="pre">[],</span> <span class="pre">transform:</span> <span class="pre">&lt;module</span> <span class="pre">'torchvision.transforms.transforms'</span> <span class="pre">from</span> <span class="pre">'/Users/shreyashankar/miniforge3/envs/ttb/lib/python3.9/site-packages/torchvision/transforms/transforms.py'&gt;</span> <span class="pre">=</span> <span class="pre">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/utils.html#SimpleDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.SimpleDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.utils.data.dataset.Dataset</span></code></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.adult_filter">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">adult_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.core.frame.DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pandas.core.frame.DataFrame</span></span></span><a class="reference internal" href="_modules/streams/utils.html#adult_filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.adult_filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mimic the filters in place for Adult data.
+Adult documentation notes: Extraction was done by Barry Becker from
+the 1994 Census database. A set of reasonably clean records was extracted
+using the following conditions:
+((AAGE&gt;16) &amp;&amp; (AGI&gt;100) &amp;&amp; (AFNLWGT&gt;1)&amp;&amp; (HRSWK&gt;0))</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.aggregate_min">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">aggregate_min</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arrays</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cvx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/streams/utils.html#aggregate_min"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.aggregate_min" title="Permalink to this definition">¶</a></dt>
+<dd><p>Takes the minimum across all arrays.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>arrays</strong> (<em>List</em><em>[</em><em>np.ndarray</em><em>]</em>) – List of np arrays.</p></li>
+<li><p><strong>use_cvx</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use cvx. Defaults to True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Min np array.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.apply_ops">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">apply_ops</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ops</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/utils.html#apply_ops"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.apply_ops" title="Permalink to this definition">¶</a></dt>
+<dd><p>Applies quilljs operations on a string. Taken
+from the CoAuthor website.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>doc</strong> (<em>str</em>) – Text so far (input document).</p></li>
+<li><p><strong>mask</strong> (<em>str</em>) – Character mask describing inputs.</p></li>
+<li><p><strong>ops</strong> (<em>list</em>) – List of JSON from quilljs.</p></li>
+<li><p><strong>source</strong> (<em>str</em>) – API or user.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Final string and mask after ops.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><em>Tuple</em>[str, str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.create_logits">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">create_logits</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain_matrices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_peaks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_step</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">starting_time_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/utils.html#create_logits"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.create_logits" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates logits and signals for T steps based on domain matrices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>domain_matrices</strong> (<em>List</em><em>[</em><em>np.ndarray</em><em>]</em>) – List of domain matrices.</p></li>
+<li><p><strong>T</strong> (<em>int</em>) – _description_</p></li>
+<li><p><strong>gamma</strong> (<em>float</em><em>, </em><em>optional</em>) – Defaults to 0.5.</p></li>
+<li><p><strong>num_peaks</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 5.</p></li>
+<li><p><strong>start_max</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 10.</p></li>
+<li><p><strong>starting_time_steps</strong> – A map of domain values to the timestep at which
+their signal value can be non-zero. For sufficiently large
+start_max, this precludes the chance of examples appearing early.</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of logits vectors, list of signals</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><em>Tuple</em>[<em>List</em>[np.ndarray], <em>List</em>[np.ndarray]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.get_completion">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">get_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/streams/utils.html#get_completion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.get_completion" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes prompt from text.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<em>str</em>) – Text generated so far.</p></li>
+<li><p><strong>mask</strong> (<em>str</em>) – Mask describing prompt or completion.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>text without prompt.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.get_prompts_and_completions">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">get_prompts_and_completions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">events</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_keyword</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'DROP_KEYWORD'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pandas.core.frame.DataFrame</span></span></span><a class="reference internal" href="_modules/streams/utils.html#get_prompts_and_completions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.get_prompts_and_completions" title="Permalink to this definition">¶</a></dt>
+<dd><p>For a session, returns a dataframe of prompts and completions.
+Every row in the dataframe represents a snapshot of the session
+taken every stride steps.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>events</strong> (<em>list</em>) – List of quilljs events for a session.</p></li>
+<li><p><strong>session_id</strong> (<em>str</em>) – Session ID.</p></li>
+<li><p><strong>drop_keyword</strong> (<em>str</em><em>, </em><em>optional</em>) – Keyword that represents drop. Defaults to
+“DROP_KEYWORD”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Prompts and completions for a session.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>pd.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.read_s3_config">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">read_s3_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/streams/utils.html#read_s3_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.read_s3_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads a config file from S3.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – Name of config file.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Config file.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="streams.utils.softmax">
+<span class="sig-prename descclassname"><span class="pre">streams.utils.</span></span><span class="sig-name descname"><span class="pre">softmax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/streams/utils.html#softmax"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.utils.softmax" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute softmax values for each sets of scores in x.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>np.ndarray</em>) – Array to softmax.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Softmaxed array.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-streams">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-streams" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="streams.STREAMSDataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">streams.</span></span><span class="sig-name descname"><span class="pre">STREAMSDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inference_window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_time_ordering</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_download</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.T">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">T</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#streams.STREAMSDataset.T" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.advance">
+<span class="sig-name descname"><span class="pre">advance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.advance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.advance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Advances the current timestep by step_size.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>step_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 1.</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If step_size is negative or outside dataset length.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.from_config">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#streams.streams_dataset.STREAMSDataset" title="streams.streams_dataset.STREAMSDataset"><span class="pre">streams.streams_dataset.STREAMSDataset</span></a></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.from_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads dataset from config file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – Path to config file OR name of
+dataset.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Dataset loaded from config file.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#streams.STREAMSDataset" title="streams.STREAMSDataset">STREAMSDataset</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">future_ok</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">torch.utils.data.dataset.Dataset</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets data for given indices. Reads into permutation and then
+accesses the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>step_indices</strong> (<em>List</em><em>[</em><em>int</em><em>]</em>) – Indices to get data for.</p></li>
+<li><p><strong>future_ok</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether it’s ok to get data after
+current step. Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If indices are beyond current step.</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>torch.utils.data.Dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.get_benchmark">
+<span class="sig-name descname"><span class="pre">get_benchmark</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">avalanche.benchmarks.scenarios.new_instances.ni_scenario.NIScenario</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_benchmark"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.get_benchmark" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets data until current step as avalanche benchmark.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.get_config">
+<span class="sig-name descname"><span class="pre">get_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.get_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets configuraton of the stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Config serialized.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.get_data">
+<span class="sig-name descname"><span class="pre">get_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">include_test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">torch.utils.data.dataset.Dataset</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.get_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns data in the current step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>include_test</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to include inference data.
+Defaults to False.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>“Train” and test datasets.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><em>Tuple</em>[torch.utils.data.Dataset, torch.utils.data.Dataset]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.get_loaders">
+<span class="sig-name descname"><span class="pre">get_loaders</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">64</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_test</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">torch.utils.data.dataloader.DataLoader</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">torch.utils.data.dataloader.DataLoader</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.get_loaders"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.get_loaders" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dataloader wrapper around get_data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 64.</p></li>
+<li><p><strong>shuffle</strong> (<em>bool</em><em>, </em><em>optional</em>) – Defaults to True.</p></li>
+<li><p><strong>include_test</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to include inference data.
+Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>typing.Tuple[ torch.utils.data.DataLoader,</dt><dd><p>torch.utils.data.DataLoader ]: Dataloaders wrapped around the
+datasets from get_data.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#streams.STREAMSDataset.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets current time step back to 0.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.save_config">
+<span class="sig-name descname"><span class="pre">save_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.save_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.save_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves configuration of the stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to save configuration.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.seed">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">seed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#streams.STREAMSDataset.seed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.step">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#streams.STREAMSDataset.step" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="streams.STREAMSDataset.visualize">
+<span class="sig-name descname"><span class="pre">visualize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain_type_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain_value_indices</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/streams/streams_dataset.html#STREAMSDataset.visualize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#streams.STREAMSDataset.visualize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns plot of signals for domain index and values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>domain_type_index</strong> (<em>int</em><em>, </em><em>optional</em>) – Defaults to 0.</p></li>
+<li><p><strong>domain_value_indices</strong> (<em>list</em><em>, </em><em>optional</em>) – Defaults to None.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">streamscl</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Shreya Shankar.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+      |
+      <a href="_sources/streams.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+
+
+
+  </body>
+</html>

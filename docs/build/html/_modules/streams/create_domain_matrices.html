@@ -1,0 +1,891 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>streams.create_domain_matrices &#8212; streamscl 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <h1>Source code for streams.create_domain_matrices</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">tarfile</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">import</span> <span class="nn">zipfile</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">turtle</span> <span class="kn">import</span> <span class="n">down</span>
+<span class="kn">from</span> <span class="nn">unicodedata</span> <span class="kn">import</span> <span class="n">category</span>
+
+<span class="kn">import</span> <span class="nn">folktables</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torchvision.transforms</span> <span class="k">as</span> <span class="nn">transforms</span>
+<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
+<span class="kn">from</span> <span class="nn">nuimages</span> <span class="kn">import</span> <span class="n">NuImages</span>
+<span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">datasets</span>
+<span class="kn">from</span> <span class="nn">wilds</span> <span class="kn">import</span> <span class="n">get_dataset</span>
+
+<span class="kn">from</span> <span class="nn">streams.utils</span> <span class="kn">import</span> <span class="p">(</span><span class="n">FullDataset</span><span class="p">,</span> <span class="n">NuImagesDataset</span><span class="p">,</span> <span class="n">RollingDataFrame</span><span class="p">,</span>
+                           <span class="n">SimpleDataset</span><span class="p">,</span> <span class="n">adult_filter</span><span class="p">,</span>
+                           <span class="n">get_prompts_and_completions</span><span class="p">)</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>
+<span class="n">DOWNLOAD_PREFIX</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;DOWNLOAD_PREFIX&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;DOWNLOAD_PREFIX&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;streams_data&quot;</span>
+<span class="p">)</span>
+<span class="n">KAGGLE_USERNAME</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;KAGGLE_USERNAME&quot;</span><span class="p">)</span>
+<span class="n">KAGGLE_KEY</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;KAGGLE_KEY&quot;</span><span class="p">)</span>
+<span class="n">HOME</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;DOWNLOAD_HOME&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;DOWNLOAD_HOME&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">())</span>
+
+
+<div class="viewcode-block" id="get_mnist"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_mnist">[docs]</a><span class="k">def</span> <span class="nf">get_mnist</span><span class="p">(</span><span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">,</span> <span class="s2">&quot;mnist&quot;</span><span class="p">)</span>
+    <span class="n">mnist_train</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">mnist_test</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Concate train and test</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">mnist_train</span> <span class="o">+</span> <span class="n">mnist_test</span>
+
+    <span class="c1"># There will be 1 domain and 10 values (labels)</span>
+    <span class="n">domain_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">),</span> <span class="mi">10</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">elem</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+        <span class="n">domain_matrix</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="n">elem</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">domain_matrix</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="get_iwildcam"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_iwildcam">[docs]</a><span class="k">def</span> <span class="nf">get_iwildcam</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">num_location_groups</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve and break down the IWildCam dataset along the time and location</span>
+<span class="sd">    (camera ID) domain types.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_location_groups: how many values there should be for the &quot;location&quot;</span>
+<span class="sd">            domain type (e.g., if 10, then allocate the 300+ camera IDs into 10</span>
+<span class="sd">            groups)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dataset: utils.FullDataset</span>
+<span class="sd">        domain_matrices: list of np.ndarray</span>
+<span class="sd">        time_periods: np.ndarray (or None, if time is not a domain)</span>
+<span class="sd">        time_ordering: np.ndarray representing time-based ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">)</span>
+    <span class="n">raw_dataset</span> <span class="o">=</span> <span class="n">get_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;iwildcam&quot;</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">root_dir</span><span class="o">=</span><span class="n">download_path</span><span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;iwildcam_v2.0&quot;</span><span class="p">,</span> <span class="s2">&quot;metadata.csv&quot;</span><span class="p">))</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;datetime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;datetime&quot;</span><span class="p">])</span>
+    <span class="n">location_idx</span> <span class="o">=</span> <span class="n">raw_dataset</span><span class="o">.</span><span class="n">metadata_fields</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;location&quot;</span><span class="p">)</span>
+
+    <span class="c1"># greedily solve partitioning problem so that camera groups are</span>
+    <span class="c1"># of roughly equal size</span>
+    <span class="n">location_count</span> <span class="o">=</span> <span class="n">raw_dataset</span><span class="o">.</span><span class="n">metadata_array</span><span class="p">[:,</span> <span class="n">location_idx</span><span class="p">]</span><span class="o">.</span><span class="n">bincount</span><span class="p">()</span>
+    <span class="n">location_group_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">location_group_sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_location_groups</span><span class="p">)</span>
+
+    <span class="c1"># assign camera to smallest camera group (by number of examples)</span>
+    <span class="k">for</span> <span class="n">location</span> <span class="ow">in</span> <span class="n">location_count</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">descending</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">smallest_group_index</span> <span class="o">=</span> <span class="n">location_group_sizes</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">location_group_map</span><span class="p">[</span><span class="n">location</span><span class="o">.</span><span class="n">item</span><span class="p">()]</span> <span class="o">=</span> <span class="n">smallest_group_index</span>
+        <span class="n">location_group_sizes</span><span class="p">[</span><span class="n">smallest_group_index</span><span class="p">]</span> <span class="o">+=</span> <span class="n">location_count</span><span class="p">[</span><span class="n">location</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+    <span class="n">location_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="n">num_location_groups</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">raw_dataset</span><span class="o">.</span><span class="n">metadata_array</span><span class="p">)):</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">raw_dataset</span><span class="o">.</span><span class="n">metadata_array</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">location_matrix</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="n">location_group_map</span><span class="p">[</span><span class="n">metadata</span><span class="p">[</span><span class="n">location_idx</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()]]</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">FullDataset</span><span class="p">(</span>
+        <span class="n">raw_dataset</span><span class="p">,</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">transforms</span><span class="o">.</span><span class="n">Resize</span><span class="p">((</span><span class="mi">448</span><span class="p">,</span> <span class="mi">448</span><span class="p">)),</span> <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">()]</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">time_idx</span> <span class="o">=</span> <span class="n">raw_dataset</span><span class="o">.</span><span class="n">metadata_fields</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;month&quot;</span><span class="p">)</span>
+    <span class="n">time_periods</span> <span class="o">=</span> <span class="n">raw_dataset</span><span class="o">.</span><span class="n">metadata_array</span><span class="p">[:,</span> <span class="n">time_idx</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="n">time_ordering</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;datetime&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">location_matrix</span><span class="p">],</span> <span class="n">time_periods</span><span class="p">,</span> <span class="n">time_ordering</span></div>
+
+
+<div class="viewcode-block" id="get_civil_comments"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_civil_comments">[docs]</a><span class="k">def</span> <span class="nf">get_civil_comments</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the Civil Comments dataset. Domains are</span>
+<span class="sd">    gender, sexuality, race, religion, and disability.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">)</span>
+    <span class="n">raw_dataset</span> <span class="o">=</span> <span class="n">get_dataset</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;civilcomments&quot;</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">root_dir</span><span class="o">=</span><span class="n">download_path</span>
+    <span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;civilcomments_v1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;all_data_with_identities.csv&quot;</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;created_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;created_date&quot;</span><span class="p">])</span>
+
+    <span class="n">all_cols</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;gender_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;male&quot;</span><span class="p">,</span> <span class="s2">&quot;female&quot;</span><span class="p">,</span> <span class="s2">&quot;transgender&quot;</span><span class="p">,</span> <span class="s2">&quot;other_gender&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;sexuality_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;heterosexual&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;homosexual_gay_or_lesbian&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;bisexual&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;other_sexual_orientation&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;religion_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;christian&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;jewish&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;muslim&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hindu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;buddhist&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;atheist&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;other_religion&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;race_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;black&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;white&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;asian&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;latino&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;other_race_or_ethnicity&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;disability_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;physical_disability&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;intellectual_or_learning_disability&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;psychiatric_or_mental_illness&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;other_disability&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="n">matrices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">all_cols</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">cols</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">last_col</span> <span class="o">=</span> <span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">matrix</span><span class="p">,</span> <span class="n">last_col</span><span class="p">])</span>
+        <span class="n">matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">matrix</span><span class="p">)</span>
+
+    <span class="n">publication_id_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">publication_id</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">last_col</span> <span class="o">=</span> <span class="p">(</span><span class="n">publication_id_matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">publication_id_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">publication_id_matrix</span><span class="p">,</span> <span class="n">last_col</span><span class="p">])</span>
+    <span class="n">matrices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">publication_id_matrix</span><span class="p">)</span>
+
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">FullDataset</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">)</span>
+    <span class="n">time_ordering</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;created_date&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">matrices</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time_ordering</span></div>
+
+
+<div class="viewcode-block" id="get_poverty"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_poverty">[docs]</a><span class="k">def</span> <span class="nf">get_poverty</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the Poverty dataset. Domains are urban</span>
+<span class="sd">    indicator and country.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">)</span>
+    <span class="n">raw_dataset</span> <span class="o">=</span> <span class="n">get_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="s2">&quot;poverty&quot;</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">root_dir</span><span class="o">=</span><span class="n">download_path</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;poverty_v1.1&quot;</span><span class="p">,</span> <span class="s2">&quot;dhs_metadata.csv&quot;</span><span class="p">))</span>
+
+    <span class="n">urban_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">urban</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">country_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">country</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">FullDataset</span><span class="p">(</span><span class="n">raw_dataset</span><span class="p">)</span>
+
+    <span class="n">time_ordering</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;year&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">urban_matrix</span><span class="p">,</span> <span class="n">country_matrix</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time_ordering</span></div>
+
+
+<div class="viewcode-block" id="get_jeopardy"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_jeopardy">[docs]</a><span class="k">def</span> <span class="nf">get_jeopardy</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the Jeopardy dataset. Domains are question</span>
+<span class="sd">    value amount and month of year.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">,</span> <span class="s2">&quot;jeopardy&quot;</span><span class="p">)</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;kaggle datasets download -d &quot;</span>
+        <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;tunguz/200000-jeopardy-questions -p </span><span class="si">{</span><span class="n">download_path</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+    <span class="n">command</span> <span class="o">+=</span> <span class="s2">&quot; --force&quot;</span> <span class="k">if</span> <span class="n">force_download</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;JEOPARDY_CSV.csv&quot;</span><span class="p">)):</span>
+        <span class="n">zip_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;200000-jeopardy-questions.zip&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">zip_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>
+            <span class="n">zip_ref</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;JEOPARDY_CSV.csv&quot;</span><span class="p">))</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">to_replace</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot; Value&quot;</span><span class="p">:</span> <span class="s2">&quot;Value&quot;</span><span class="p">,</span>
+            <span class="s2">&quot; Category&quot;</span><span class="p">:</span> <span class="s2">&quot;Category&quot;</span><span class="p">,</span>
+            <span class="s2">&quot; Question&quot;</span><span class="p">:</span> <span class="s2">&quot;Question&quot;</span><span class="p">,</span>
+            <span class="s2">&quot; Answer&quot;</span><span class="p">:</span> <span class="s2">&quot;Answer&quot;</span><span class="p">,</span>
+            <span class="s2">&quot; Air Date&quot;</span><span class="p">:</span> <span class="s2">&quot;Air Date&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Value&quot;</span><span class="p">,</span> <span class="s2">&quot;Category&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Category&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Category&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Air Date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Air Date&quot;</span><span class="p">])</span>
+
+    <span class="n">value_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Value&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">month_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Air Date&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">month</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">SimpleDataset</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">feature_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Question&quot;</span><span class="p">],</span> <span class="n">label_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Answer&quot;</span><span class="p">])</span>
+    <span class="n">time_ordering</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Air Date&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">value_matrix</span><span class="p">,</span> <span class="n">month_matrix</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time_ordering</span></div>
+
+
+<div class="viewcode-block" id="get_air_quality"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_air_quality">[docs]</a><span class="k">def</span> <span class="nf">get_air_quality</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the Beijing Air Quality dataset.</span>
+<span class="sd">    Domain is the station the measurement was taken from.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">,</span> <span class="s2">&quot;air_quality&quot;</span><span class="p">)</span>
+    <span class="n">folder_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;PRSA_Data_20130301-20170228&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">force_download</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folder_path</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading air quality data&quot;</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;https://archive.ics.uci.edu/ml/machine-learning-databases&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;/00501/PRSA2017_Data_20130301-20170228.zip&quot;</span><span class="p">,</span>
+            <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">content</span><span class="p">))</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>
+            <span class="n">zip_ref</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+
+    <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder_path</span><span class="p">):</span>
+        <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">)))</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;year&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;year&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;month&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;month&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;day&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;day&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;hour&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;hour&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">timestamps</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[[</span><span class="s2">&quot;year&quot;</span><span class="p">,</span> <span class="s2">&quot;month&quot;</span><span class="p">,</span> <span class="s2">&quot;day&quot;</span><span class="p">,</span> <span class="s2">&quot;hour&quot;</span><span class="p">]])</span>
+
+    <span class="c1"># Make one of the sensors int valued</span>
+    <span class="n">wds</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">wd</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;wd_raw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;wd&quot;</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;wd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;wd&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">wds</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+
+    <span class="c1"># Create station matrix</span>
+    <span class="n">station_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;station&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Create time periods array. We use dataframes for speed, otherwise it</span>
+    <span class="c1"># will take O(10 mins).</span>
+    <span class="n">unique_timestamps</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">timestamps</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+    <span class="n">timestamp_map</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">unique_timestamps</span><span class="p">,</span>
+            <span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_timestamps</span><span class="p">)),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">timestamp_map</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">timestamp_map</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">])</span>
+    <span class="n">timestamp_idx</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">timestamps</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">timestamp_map</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)[</span><span class="s2">&quot;index&quot;</span><span class="p">]</span>
+        <span class="o">.</span><span class="n">values</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Create dataset</span>
+    <span class="n">sensor_cols</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;PM2.5&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;PM10&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SO2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NO2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CO&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;O3&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;TEMP&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;PRES&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DEWP&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RAIN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;wd&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;WSPM&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">RollingDataFrame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">sensor_cols</span><span class="p">,</span> <span class="s2">&quot;station&quot;</span><span class="p">)</span>
+    <span class="n">time_ordering</span> <span class="o">=</span> <span class="n">timestamps</span><span class="o">.</span><span class="n">sort_values</span><span class="p">()</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">station_matrix</span><span class="p">],</span> <span class="n">timestamp_idx</span><span class="p">,</span> <span class="n">time_ordering</span></div>
+
+
+<div class="viewcode-block" id="get_zillow"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_zillow">[docs]</a><span class="k">def</span> <span class="nf">get_zillow</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the Zillow dataset. Domain is the</span>
+<span class="sd">    metro / area.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">,</span> <span class="s2">&quot;zillow&quot;</span><span class="p">)</span>
+    <span class="n">file_paths</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;Metro_mlp_uc_sfrcondo_week.csv&quot;</span><span class="p">),</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;Metro_median_sale_price_uc_sfrcondo_week.csv&quot;</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">force_download</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">file_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">file_paths</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading Zillow data&quot;</span><span class="p">)</span>
+        <span class="n">list_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="s2">&quot;https://files.zillowstatic.com/research/public_csvs&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;/mlp/Metro_mlp_uc_sfrcondo_week.csv&quot;</span>
+        <span class="p">)</span>
+        <span class="n">sale_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="s2">&quot;https://files.zillowstatic.com/research/public_csvs/&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;median_sale_price/Metro_median_sale_price_uc_sfrcondo_week.csv&quot;</span>
+        <span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">list_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">file_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">sale_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">file_paths</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">list_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">file_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">sale_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">file_paths</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># Clean and transform dataframes (unpivot)</span>
+    <span class="n">list_date_cols</span> <span class="o">=</span> <span class="n">list_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+    <span class="n">sale_date_cols</span> <span class="o">=</span> <span class="n">sale_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="s2">&quot;RegionID&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SizeRank&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RegionName&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RegionType&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;StateName&quot;</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="n">list_date_cols</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+        <span class="n">sale_date_cols</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+    <span class="n">list_price_df</span> <span class="o">=</span> <span class="n">list_df</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">],</span>
+        <span class="n">value_vars</span><span class="o">=</span><span class="n">list_date_cols</span><span class="p">,</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;date&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;list_price&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">sale_price_df</span> <span class="o">=</span> <span class="n">sale_df</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">],</span>
+        <span class="n">value_vars</span><span class="o">=</span><span class="n">sale_date_cols</span><span class="p">,</span>
+        <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;date&quot;</span><span class="p">,</span>
+        <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;sale_price&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">list_price_df</span><span class="p">[</span><span class="s2">&quot;date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">list_price_df</span><span class="p">[</span><span class="s2">&quot;date&quot;</span><span class="p">])</span>
+    <span class="n">sale_price_df</span><span class="p">[</span><span class="s2">&quot;date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">sale_price_df</span><span class="p">[</span><span class="s2">&quot;date&quot;</span><span class="p">])</span>
+
+    <span class="n">list_price_df</span> <span class="o">=</span> <span class="n">list_price_df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">])</span>
+    <span class="n">sale_price_df</span> <span class="o">=</span> <span class="n">sale_price_df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">])</span>
+
+    <span class="c1"># Resample and forward fill values to merge dfs</span>
+    <span class="n">ffill_lim</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">list_price_df</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">list_price_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;RegionID&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s2">&quot;1W&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">ffill</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="n">ffill_lim</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">list_price_df</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">list_price_df</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="n">sale_price_df</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">sale_price_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;RegionID&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;date&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s2">&quot;1W&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">ffill</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="n">ffill_lim</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">sale_price_df</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sale_price_df</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1"># Merge dataframes</span>
+    <span class="n">raw_merge</span> <span class="o">=</span> <span class="n">sale_price_df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">list_price_df</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">raw_merge</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">raw_merge</span><span class="p">[</span><span class="s2">&quot;date_x&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">raw_merge</span><span class="p">[</span><span class="s2">&quot;date_y&quot;</span><span class="p">]]</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">merged</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;RegionID&quot;</span><span class="p">,</span> <span class="s2">&quot;date_x&quot;</span><span class="p">])[</span><span class="s2">&quot;date_y&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="nb">max</span><span class="p">)</span>
+        <span class="o">==</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;date_y&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">merged</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;date_x&quot;</span><span class="p">:</span> <span class="s2">&quot;sale_date&quot;</span><span class="p">,</span> <span class="s2">&quot;date_y&quot;</span><span class="p">:</span> <span class="s2">&quot;list_date&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">metro_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">unique_sale_dates</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="s2">&quot;sale_date&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="n">sale_idx</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;sale_date&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">unique_sale_dates</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">x</span><span class="p">))</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Create dataset</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">RollingDataFrame</span><span class="p">(</span>
+        <span class="n">merged</span><span class="p">,</span>
+        <span class="p">[</span><span class="s2">&quot;sale_price&quot;</span><span class="p">,</span> <span class="s2">&quot;list_price&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;RegionID&quot;</span><span class="p">,</span>
+        <span class="n">label_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sale_price&quot;</span><span class="p">],</span>
+        <span class="n">metadata_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;RegionID&quot;</span><span class="p">,</span> <span class="s2">&quot;sale_date&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">time_ordering</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sale_date&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">metro_matrix</span><span class="p">],</span> <span class="n">sale_idx</span><span class="p">,</span> <span class="n">time_ordering</span></div>
+
+
+<div class="viewcode-block" id="get_coauthor"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_coauthor">[docs]</a><span class="k">def</span> <span class="nf">get_coauthor</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the Coauthor dataset. Domains are worker</span>
+<span class="sd">    ID and prompt category.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">,</span> <span class="s2">&quot;coauthor&quot;</span><span class="p">)</span>
+    <span class="n">folder_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;coauthor-v1.0&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">force_download</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folder_path</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading CoAuthor data&quot;</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;https://cs.stanford.edu/~minalee/zip/chi2022-coauthor-v1.0.zip&quot;</span><span class="p">,</span>
+            <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">content</span><span class="p">))</span> <span class="k">as</span> <span class="n">zip_ref</span><span class="p">:</span>
+            <span class="n">zip_ref</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+
+    <span class="n">session_paths</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;jsonl&quot;</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">events</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">[</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)]</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">session_paths</span>
+    <span class="p">]</span>
+
+    <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">drop_keyword</span> <span class="o">=</span> <span class="s2">&quot;DROP_KEYWORD&quot;</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">folder_path</span><span class="p">)):</span>
+        <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">get_prompts_and_completions</span><span class="p">(</span>
+                <span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">session_id</span><span class="o">=</span><span class="n">path</span><span class="p">,</span>
+                <span class="n">drop_keyword</span><span class="o">=</span><span class="n">drop_keyword</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;next&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">drop_keyword</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Read metadata files for domain values</span>
+    <span class="k">def</span> <span class="nf">build_sheet_url</span><span class="p">(</span><span class="n">doc_id</span><span class="p">,</span> <span class="n">sheet_id</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;https://docs.google.com/spreadsheets/d/</span><span class="si">{</span><span class="n">doc_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;/export?format=csv&amp;gid=</span><span class="si">{</span><span class="n">sheet_id</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">doc_id</span> <span class="o">=</span> <span class="s2">&quot;1O3EXJm52TQHfFSbzVGZmNIzzdu5ow6IjnOBrGTUY02o&quot;</span>
+    <span class="n">creative_sheet_id</span> <span class="o">=</span> <span class="s2">&quot;1870708729&quot;</span>
+    <span class="n">argumentative_sheet_id</span> <span class="o">=</span> <span class="s2">&quot;320516663&quot;</span>
+
+    <span class="n">creative_metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">build_sheet_url</span><span class="p">(</span><span class="n">doc_id</span><span class="p">,</span> <span class="n">creative_sheet_id</span><span class="p">))</span>
+    <span class="n">argumentative_metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">build_sheet_url</span><span class="p">(</span><span class="n">doc_id</span><span class="p">,</span> <span class="n">argumentative_sheet_id</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Make sure metadata files are well-formed</span>
+    <span class="k">assert</span> <span class="n">creative_metadata</span><span class="p">[</span><span class="s2">&quot;session_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">creative_metadata</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">argumentative_metadata</span><span class="p">[</span><span class="s2">&quot;session_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">argumentative_metadata</span><span class="p">)</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">creative_metadata</span><span class="p">[[</span><span class="s2">&quot;worker_id&quot;</span><span class="p">,</span> <span class="s2">&quot;session_id&quot;</span><span class="p">,</span> <span class="s2">&quot;prompt_code&quot;</span><span class="p">]],</span>
+            <span class="n">argumentative_metadata</span><span class="p">[[</span><span class="s2">&quot;worker_id&quot;</span><span class="p">,</span> <span class="s2">&quot;session_id&quot;</span><span class="p">,</span> <span class="s2">&quot;prompt_code&quot;</span><span class="p">]],</span>
+        <span class="p">]</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;session_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+
+    <span class="c1"># Merge metadata and df to create domain matrices</span>
+    <span class="n">full_df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;session_id&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="n">worker_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">full_df</span><span class="p">[</span><span class="s2">&quot;worker_id&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">prompt_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">full_df</span><span class="p">[</span><span class="s2">&quot;prompt_code&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Create dataset</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">SimpleDataset</span><span class="p">(</span>
+        <span class="n">full_df</span><span class="p">,</span>
+        <span class="n">feature_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">],</span>
+        <span class="n">label_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;next&quot;</span><span class="p">],</span>
+        <span class="n">metadata_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;worker_id&quot;</span><span class="p">,</span> <span class="s2">&quot;prompt_code&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">time_ordering</span> <span class="o">=</span> <span class="n">full_df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">worker_matrix</span><span class="p">,</span> <span class="n">prompt_matrix</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time_ordering</span></div>
+
+
+<div class="viewcode-block" id="get_census"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_census">[docs]</a><span class="k">def</span> <span class="nf">get_census</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the Census dataset. Domains are</span>
+<span class="sd">    race &amp; state.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">,</span> <span class="s2">&quot;census&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Declare problem setups</span>
+    <span class="n">feature_columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;ST&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;AGEP&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SCHL&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MAR&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RELP&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DIS&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ESP&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CIT&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MIG&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MIL&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ANC&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NATIVITY&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DEAR&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DEYE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DREM&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SEX&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RAC1P&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Download data</span>
+    <span class="n">data_source</span> <span class="o">=</span> <span class="n">folktables</span><span class="o">.</span><span class="n">ACSDataSource</span><span class="p">(</span>
+        <span class="n">survey_year</span><span class="o">=</span><span class="s2">&quot;2018&quot;</span><span class="p">,</span>
+        <span class="n">horizon</span><span class="o">=</span><span class="s2">&quot;1-Year&quot;</span><span class="p">,</span>
+        <span class="n">survey</span><span class="o">=</span><span class="s2">&quot;person&quot;</span><span class="p">,</span>
+        <span class="n">root_dir</span><span class="o">=</span><span class="n">download_path</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">force_download</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">download_path</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading Census data&quot;</span><span class="p">)</span>
+        <span class="n">acs_data</span> <span class="o">=</span> <span class="n">data_source</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">acs_data</span> <span class="o">=</span> <span class="n">data_source</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">download</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Preprocess</span>
+    <span class="n">acs_data</span> <span class="o">=</span> <span class="n">adult_filter</span><span class="p">(</span><span class="n">acs_data</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">acs_data</span><span class="p">[</span><span class="s2">&quot;ESR_binary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">acs_data</span><span class="p">[</span><span class="s2">&quot;ESR&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">acs_data</span> <span class="o">=</span> <span class="n">acs_data</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">race_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">acs_data</span><span class="p">[</span><span class="s2">&quot;RAC1P&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">state_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">acs_data</span><span class="p">[</span><span class="s2">&quot;ST&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Create dataset</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">SimpleDataset</span><span class="p">(</span>
+        <span class="n">acs_data</span><span class="p">,</span>
+        <span class="n">feature_cols</span><span class="o">=</span><span class="n">feature_columns</span><span class="p">,</span>
+        <span class="n">label_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ESR_binary&quot;</span><span class="p">],</span>
+        <span class="n">metadata_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ST&quot;</span><span class="p">,</span> <span class="s2">&quot;RAC1P&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">race_matrix</span><span class="p">,</span> <span class="n">state_matrix</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="get_test"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_test">[docs]</a><span class="k">def</span> <span class="nf">get_test</span><span class="p">(</span>
+    <span class="n">force_download</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Testing utility function. Creates a fake dataset.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray, np.ndarray ]:</span>
+<span class="sd">            Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">)),</span>
+            <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">)),</span>
+            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;feat1&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">SimpleDataset</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">feature_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;feat1&quot;</span><span class="p">,</span> <span class="s2">&quot;feat2&quot;</span><span class="p">],</span> <span class="n">label_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">dataset</span><span class="p">,</span> <span class="p">[</span><span class="n">matrix</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="get_nuimages"><a class="viewcode-back" href="../../streams.html#streams.create_domain_matrices.get_nuimages">[docs]</a><span class="k">def</span> <span class="nf">get_nuimages</span><span class="p">(</span><span class="n">force_download</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves and preprocesses the NuImages dataset. Domains are</span>
+<span class="sd">    modality, location, and vehicle ID.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        force_download (bool, optional): Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[ torch.utils.data.Dataset, typing.List[np.ndarray],</span>
+<span class="sd">            np.ndarray ]: Dataset, domain matrices of size (num_examples,</span>
+<span class="sd">            num_domain_vals) for each domain, and time periods</span>
+<span class="sd">            (if time is a domain), and time ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">download_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">HOME</span><span class="p">,</span> <span class="n">DOWNLOAD_PREFIX</span><span class="p">,</span> <span class="s2">&quot;nuimages&quot;</span><span class="p">)</span>
+
+    <span class="c1"># TODO(shreyashankar): Download full dataset instead of mini</span>
+    <span class="c1"># nuimages-v1.0-all-metadata.tgz and nuimages-v1.0-all-samples.tgz</span>
+    <span class="k">if</span> <span class="n">force_download</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">download_path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="s2">&quot;Please download the dataset into a nuimages folder in your streams_data directory. Download metadata (US) and samples (US) from https://www.nuscenes.org/nuimages#download. The nuimages folder should contain samples, v1.0-mini, v1.0-train, v1.0-val, and v1.0-test folders.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">nuim</span> <span class="o">=</span> <span class="n">NuImages</span><span class="p">(</span>
+        <span class="n">dataroot</span><span class="o">=</span><span class="n">download_path</span><span class="p">,</span>
+        <span class="n">version</span><span class="o">=</span><span class="s2">&quot;v1.0-train&quot;</span><span class="p">,</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Create domain matrices</span>
+    <span class="n">modalities</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">locations</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">vehicles</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">categories</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">nuim</span><span class="o">.</span><span class="n">object_ann</span><span class="p">:</span>
+        <span class="n">categories</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;category_token&quot;</span><span class="p">])</span>
+        <span class="n">modalities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;sensor&quot;</span><span class="p">,</span>
+                <span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="s2">&quot;calibrated_sensor&quot;</span><span class="p">,</span>
+                    <span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_data&quot;</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;sample_data_token&quot;</span><span class="p">])[</span>
+                        <span class="s2">&quot;calibrated_sensor_token&quot;</span>
+                    <span class="p">],</span>
+                <span class="p">)[</span><span class="s2">&quot;sensor_token&quot;</span><span class="p">],</span>
+            <span class="p">)[</span><span class="s2">&quot;modality&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;log&quot;</span><span class="p">,</span>
+            <span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="s2">&quot;sample&quot;</span><span class="p">,</span>
+                <span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_data&quot;</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;sample_data_token&quot;</span><span class="p">])[</span><span class="s2">&quot;sample_token&quot;</span><span class="p">],</span>
+            <span class="p">)[</span><span class="s2">&quot;log_token&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">locations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">log</span><span class="p">[</span><span class="s2">&quot;location&quot;</span><span class="p">])</span>
+        <span class="n">vehicles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">log</span><span class="p">[</span><span class="s2">&quot;vehicle&quot;</span><span class="p">])</span>
+
+    <span class="n">modality_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">modalities</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">location_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">vehicle_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">vehicles</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Create dataset and labels</span>
+    <span class="n">distinct_labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">categories</span><span class="p">))</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">distinct_labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">categories</span><span class="p">]</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">NuImagesDataset</span><span class="p">(</span>
+        <span class="n">nuim</span><span class="p">,</span>
+        <span class="n">labels</span><span class="p">,</span>
+        <span class="p">{</span><span class="s2">&quot;modality&quot;</span><span class="p">:</span> <span class="n">modalities</span><span class="p">,</span> <span class="s2">&quot;location&quot;</span><span class="p">:</span> <span class="n">locations</span><span class="p">,</span> <span class="s2">&quot;vehicle&quot;</span><span class="p">:</span> <span class="n">vehicles</span><span class="p">},</span>
+        <span class="n">download_path</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">dataset</span><span class="p">,</span>
+        <span class="p">[</span><span class="n">modality_matrix</span><span class="p">,</span> <span class="n">location_matrix</span><span class="p">,</span> <span class="n">vehicle_matrix</span><span class="p">],</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="n">name_to_func</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;mnist&quot;</span><span class="p">:</span> <span class="n">get_mnist</span><span class="p">,</span>
+    <span class="s2">&quot;iwildcam&quot;</span><span class="p">:</span> <span class="n">get_iwildcam</span><span class="p">,</span>
+    <span class="s2">&quot;civilcomments&quot;</span><span class="p">:</span> <span class="n">get_civil_comments</span><span class="p">,</span>
+    <span class="s2">&quot;poverty&quot;</span><span class="p">:</span> <span class="n">get_poverty</span><span class="p">,</span>
+    <span class="s2">&quot;jeopardy&quot;</span><span class="p">:</span> <span class="n">get_jeopardy</span><span class="p">,</span>
+    <span class="s2">&quot;airquality&quot;</span><span class="p">:</span> <span class="n">get_air_quality</span><span class="p">,</span>
+    <span class="s2">&quot;zillow&quot;</span><span class="p">:</span> <span class="n">get_zillow</span><span class="p">,</span>
+    <span class="s2">&quot;coauthor&quot;</span><span class="p">:</span> <span class="n">get_coauthor</span><span class="p">,</span>
+    <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">get_test</span><span class="p">,</span>
+    <span class="s2">&quot;census&quot;</span><span class="p">:</span> <span class="n">get_census</span><span class="p">,</span>
+    <span class="s2">&quot;nuimages&quot;</span><span class="p">:</span> <span class="n">get_nuimages</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">streamscl</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Shreya Shankar.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+    </div>
+
+
+
+
+  </body>
+</html>

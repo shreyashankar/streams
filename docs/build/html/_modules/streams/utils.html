@@ -1,0 +1,657 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>streams.utils &#8212; streamscl 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <h1>Source code for streams.utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utility functions for creating streams.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="kn">import</span> <span class="nn">cvxpy</span> <span class="k">as</span> <span class="nn">cp</span>
+<span class="kn">import</span> <span class="nn">joblib</span>
+<span class="kn">import</span> <span class="nn">nuimages</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torchvision.transforms</span> <span class="k">as</span> <span class="nn">transforms</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+
+
+<div class="viewcode-block" id="aggregate_min"><a class="viewcode-back" href="../../streams.html#streams.utils.aggregate_min">[docs]</a><span class="k">def</span> <span class="nf">aggregate_min</span><span class="p">(</span><span class="n">arrays</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">use_cvx</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Takes the minimum across all arrays.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        arrays (typing.List[np.ndarray]): List of np arrays.</span>
+<span class="sd">        use_cvx (bool, optional): Whether to use cvx. Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: Min np array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">arrays</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrays</span><span class="p">)):</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">arrays</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">if</span> <span class="n">use_cvx</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">arrays</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">res</span></div>
+
+
+<div class="viewcode-block" id="softmax"><a class="viewcode-back" href="../../streams.html#streams.utils.softmax">[docs]</a><span class="k">def</span> <span class="nf">softmax</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Compute softmax values for each sets of scores in x.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (np.ndarray): Array to softmax.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: Softmaxed array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">e_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">e_x</span> <span class="o">/</span> <span class="n">e_x</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_logits"><a class="viewcode-back" href="../../streams.html#streams.utils.create_logits">[docs]</a><span class="k">def</span> <span class="nf">create_logits</span><span class="p">(</span>
+    <span class="n">domain_matrices</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">T</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">num_peaks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="n">start_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>  <span class="c1"># highest value signal can take to start with</span>
+    <span class="n">duration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">log_step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">starting_time_steps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Dict</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{},</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Creates logits and signals for T steps based on domain matrices.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        domain_matrices (typing.List[np.ndarray]): List of domain matrices.</span>
+<span class="sd">        T (int): _description_</span>
+<span class="sd">        gamma (float, optional): Defaults to 0.5.</span>
+<span class="sd">        num_peaks (int, optional): Defaults to 5.</span>
+<span class="sd">        start_max (int, optional): Defaults to 10.</span>
+<span class="sd">        starting_time_steps: A map of domain values to the timestep at which</span>
+<span class="sd">            their signal value can be non-zero. For sufficiently large</span>
+<span class="sd">            start_max, this precludes the chance of examples appearing early.</span>
+<span class="sd">        seed (int, optional): Defaults to 0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[typing.List[np.ndarray], typing.List[np.ndarray]]:</span>
+<span class="sd">            List of logits vectors, list of signals</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">domain_matrices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">domain_matrices</span><span class="p">)</span>
+    <span class="n">logits</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">signals</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Set seeds</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+    <span class="c1"># signals in first period all set to same value for each domain type</span>
+    <span class="n">prev_s_vectors</span> <span class="o">=</span> <span class="p">[[</span><span class="n">start_max</span> <span class="o">/</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="n">domain_matrices</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="ow">in</span> <span class="n">starting_time_steps</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">starting_time_steps</span><span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">prev_s_vectors</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">prev_z</span> <span class="o">=</span> <span class="n">aggregate_min</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">mat</span> <span class="o">@</span> <span class="n">s</span> <span class="k">for</span> <span class="n">mat</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">domain_matrices</span><span class="p">,</span> <span class="n">prev_s_vectors</span><span class="p">)],</span>
+        <span class="n">use_cvx</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">prev_p</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">prev_z</span><span class="p">)</span>
+
+    <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prev_s_vectors</span><span class="p">)</span>
+    <span class="n">logits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prev_z</span><span class="p">)</span>
+
+    <span class="n">peaks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">num_peaks</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="n">duration_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Iterate</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">duration</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>  <span class="c1"># TODO(shreyashankar): change this when we do groups</span>
+        <span class="n">s_vectors</span> <span class="o">=</span> <span class="p">[</span><span class="n">cp</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">mat</span> <span class="ow">in</span> <span class="n">domain_matrices</span><span class="p">]</span>
+
+        <span class="c1"># z is concave in optimization variable s</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">aggregate_min</span><span class="p">([</span><span class="n">mat</span> <span class="o">@</span> <span class="n">s</span> <span class="k">for</span> <span class="n">mat</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">domain_matrices</span><span class="p">,</span> <span class="n">s_vectors</span><span class="p">)])</span>
+
+        <span class="c1"># convex alternative to z (take mean instead of min over domain types)</span>
+        <span class="n">pseudo_z</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="mi">1</span>
+            <span class="o">/</span> <span class="n">m</span>
+            <span class="o">*</span> <span class="n">cp</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">mat</span> <span class="o">@</span> <span class="n">s</span> <span class="k">for</span> <span class="n">mat</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">domain_matrices</span><span class="p">,</span> <span class="n">s_vectors</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># instead of maximizing KL divergence with prev_p (not convex)</span>
+        <span class="c1"># we find some entropic distribution p* with which</span>
+        <span class="c1"># we can minimize KL divergence (convex)</span>
+        <span class="n">peaks</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">peaks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+        <span class="n">p_star</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">prev_p</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">peaks</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">p_star</span><span class="p">[</span><span class="n">peaks</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">p_star</span><span class="p">[</span><span class="n">peaks</span><span class="p">]</span> <span class="o">=</span> <span class="n">start_max</span>
+            <span class="n">p_star</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">p_star</span><span class="p">)</span>
+
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Minimize</span><span class="p">(</span>
+            <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="p">(</span><span class="n">p_star</span> <span class="o">@</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">+</span> <span class="n">z</span> <span class="o">-</span> <span class="n">cp</span><span class="o">.</span><span class="n">log_sum_exp</span><span class="p">(</span><span class="n">pseudo_z</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">c</span><span class="p">))))</span>
+        <span class="p">)</span>
+
+        <span class="c1"># prevent rapid changes from one timestep to another using L2 norm</span>
+        <span class="n">smoothness_constraints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span>
+                <span class="mi">1</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">s_vectors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">)</span>
+                <span class="o">*</span> <span class="n">cp</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">s_vectors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">prev_s_vectors</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">&lt;=</span> <span class="n">gamma</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># signal values should be non-negative</span>
+        <span class="n">nonnegativity_constraints</span> <span class="o">=</span> <span class="p">[</span><span class="n">s_vectors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span>
+            <span class="n">s_vectors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">start_max</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># only allow certain signal values past a certain timestep</span>
+        <span class="n">starting_time_step_constraints</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">s_vectors</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="ow">in</span> <span class="n">starting_time_steps</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">starting_time_steps</span><span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)]</span> <span class="o">&gt;</span> <span class="n">t</span>
+        <span class="p">]</span>
+
+        <span class="n">all_constraints</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">smoothness_constraints</span>
+            <span class="o">+</span> <span class="n">nonnegativity_constraints</span>
+            <span class="o">+</span> <span class="n">starting_time_step_constraints</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Solve the problem</span>
+        <span class="n">prob</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">Problem</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">all_constraints</span><span class="p">)</span>
+        <span class="n">prob</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+
+        <span class="n">optimal_value</span> <span class="o">=</span> <span class="n">prob</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="n">curr_z</span> <span class="o">=</span> <span class="n">aggregate_min</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">mat</span> <span class="o">@</span> <span class="n">s</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">mat</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">domain_matrices</span><span class="p">,</span> <span class="n">s_vectors</span><span class="p">)],</span>
+            <span class="n">use_cvx</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">curr_p</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">curr_z</span><span class="p">)</span>
+
+        <span class="c1"># signal value should persist for entirety of duration</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">duration</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">signals</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">T</span><span class="p">:</span>
+                <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">s</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">s_vectors</span><span class="p">])</span>
+                <span class="n">logits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curr_z</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">d</span><span class="p">)</span> <span class="o">%</span> <span class="n">log_step</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iteration </span><span class="si">{</span><span class="n">t</span> <span class="o">+</span> <span class="n">d</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">optimal_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Set new prev vectors</span>
+        <span class="n">prev_s_vectors</span> <span class="o">=</span> <span class="p">[</span><span class="n">s_vec</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">s_vec</span> <span class="ow">in</span> <span class="n">s_vectors</span><span class="p">]</span>
+        <span class="n">prev_z</span> <span class="o">=</span> <span class="n">curr_z</span>
+        <span class="n">prev_p</span> <span class="o">=</span> <span class="n">curr_p</span>
+
+    <span class="k">return</span> <span class="n">logits</span><span class="p">,</span> <span class="n">signals</span></div>
+
+
+<div class="viewcode-block" id="FullDataset"><a class="viewcode-back" href="../../streams.html#streams.utils.FullDataset">[docs]</a><span class="k">class</span> <span class="nc">FullDataset</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataset</span><span class="p">,</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="n">transforms</span><span class="o">.</span><span class="n">transforms</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates dataset for Avalanche.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dataset (WildsDataset, Torch dataset, whatever): Dataset to use.</span>
+<span class="sd">            transform (transforms.transforms, optional): Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_dataset</span> <span class="o">=</span> <span class="n">dataset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_dataset</span><span class="o">.</span><span class="n">y_array</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_dataset</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_dataset</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">metadata</span></div>
+
+
+<div class="viewcode-block" id="SimpleDataset"><a class="viewcode-back" href="../../streams.html#streams.utils.SimpleDataset">[docs]</a><span class="k">class</span> <span class="nc">SimpleDataset</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">feature_cols</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">label_cols</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">metadata_cols</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="n">transforms</span><span class="o">.</span><span class="n">transforms</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Pytorch dataset for feature and target tensors.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            df (pd.DataFrame): Dataframe to use.</span>
+<span class="sd">            feature_cols (typing.List[str]): List of float-valued columns.</span>
+<span class="sd">            label_cols (typing.List[str], optional): List of label columns.</span>
+<span class="sd">            metadata_cols (typing.List[str], optional): List of</span>
+<span class="sd">                gmetadata columns.</span>
+<span class="sd">            transform (transforms.transforms, optional): Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df</span> <span class="o">=</span> <span class="n">df</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_cols</span> <span class="o">=</span> <span class="n">feature_cols</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">label_cols</span> <span class="o">=</span> <span class="n">label_cols</span> <span class="k">if</span> <span class="n">label_cols</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_cols</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">label_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cols</span> <span class="o">=</span> <span class="n">metadata_cols</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cols</span><span class="p">:</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_cols</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">metadata</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="RollingDataFrame"><a class="viewcode-back" href="../../streams.html#streams.utils.RollingDataFrame">[docs]</a><span class="k">class</span> <span class="nc">RollingDataFrame</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">feature_cols</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">group_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">label_cols</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata_cols</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="n">transforms</span><span class="o">.</span><span class="n">transforms</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Pytorch dataset for rolling windows of data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            df (pd.DataFrame): Dataframe to use.</span>
+<span class="sd">            feature_cols (typing.List[str]): List of float-valued columns.</span>
+<span class="sd">            group_col (str): Column to group by.</span>
+<span class="sd">            label_cols (typing.List[str], optional): List of label columns.</span>
+<span class="sd">            metadata_cols (typing.List[str], optional): List of</span>
+<span class="sd">                gmetadata columns.</span>
+<span class="sd">            transform (transforms.transforms, optional): Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df</span> <span class="o">=</span> <span class="n">df</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_cols</span> <span class="o">=</span> <span class="n">feature_cols</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">group_col</span> <span class="o">=</span> <span class="n">group_col</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">label_cols</span> <span class="o">=</span> <span class="n">label_cols</span> <span class="k">if</span> <span class="n">label_cols</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_cols</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">label_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cols</span> <span class="o">=</span> <span class="n">metadata_cols</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="n">group_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">group_col</span><span class="p">]</span>
+        <span class="n">subset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">group_df</span> <span class="o">=</span> <span class="n">subset</span><span class="p">[</span><span class="n">subset</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">group_col</span><span class="p">]</span> <span class="o">==</span> <span class="n">group_name</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">group_df</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">group_df</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">label_cols</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_cols</span><span class="p">:</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_cols</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">metadata</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="NuImagesDataset"><a class="viewcode-back" href="../../streams.html#streams.utils.NuImagesDataset">[docs]</a><span class="k">class</span> <span class="nc">NuImagesDataset</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">nuim</span><span class="p">:</span> <span class="n">nuimages</span><span class="o">.</span><span class="n">nuimages</span><span class="o">.</span><span class="n">NuImages</span><span class="p">,</span>
+        <span class="n">labels</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;PyTorch dataset for NuImages.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nuim (nuimages.nuimages.NuImages): nuimages dataset.</span>
+<span class="sd">            labels (typing.List[int]): List of labels.</span>
+<span class="sd">            metadata (dict): Dictionary of modality, location, vehicle lists.</span>
+<span class="sd">            prefix (str): Prefix for image filenames.</span>
+<span class="sd">            transform: Torch transform. Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nuim</span> <span class="o">=</span> <span class="n">nuim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="n">labels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="n">prefix</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="n">ann</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuim</span><span class="o">.</span><span class="n">object_ann</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">category</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;category&quot;</span><span class="p">,</span> <span class="n">ann</span><span class="p">[</span><span class="s2">&quot;category_token&quot;</span><span class="p">])</span>
+        <span class="n">sample_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuim</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sample_data&quot;</span><span class="p">,</span> <span class="n">ann</span><span class="p">[</span><span class="s2">&quot;sample_data_token&quot;</span><span class="p">])</span>
+
+        <span class="c1"># Things to return</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">sample_data</span><span class="p">[</span><span class="s2">&quot;filename&quot;</span><span class="p">]</span>
+        <span class="n">bbox</span> <span class="o">=</span> <span class="n">ann</span><span class="p">[</span><span class="s2">&quot;bbox&quot;</span><span class="p">]</span>
+        <span class="n">category_name</span> <span class="o">=</span> <span class="n">category</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">}</span>
+
+        <span class="n">full_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">full_path</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span><span class="n">transforms</span><span class="o">.</span><span class="n">PILToTensor</span><span class="p">()])(</span><span class="n">image</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">bbox</span><span class="p">,</span> <span class="n">category_name</span><span class="p">,</span> <span class="n">metadata</span></div>
+
+
+<span class="c1"># UTILITY FUNCTIONS FOR COAUTHOR</span>
+
+
+<div class="viewcode-block" id="apply_ops"><a class="viewcode-back" href="../../streams.html#streams.utils.apply_ops">[docs]</a><span class="k">def</span> <span class="nf">apply_ops</span><span class="p">(</span><span class="n">doc</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ops</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Applies quilljs operations on a string. Taken</span>
+<span class="sd">    from the CoAuthor website.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        doc (str): Text so far (input document).</span>
+<span class="sd">        mask (str): Character mask describing inputs.</span>
+<span class="sd">        ops (list): List of JSON from quilljs.</span>
+<span class="sd">        source (str): API or user.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        typing.Tuple[str, str]: Final string and mask after ops.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">original_doc</span> <span class="o">=</span> <span class="n">doc</span>
+    <span class="n">original_mask</span> <span class="o">=</span> <span class="n">mask</span>
+
+    <span class="n">new_doc</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">new_mask</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">op</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ops</span><span class="p">):</span>
+
+        <span class="c1"># Handle retain operation</span>
+        <span class="k">if</span> <span class="s2">&quot;retain&quot;</span> <span class="ow">in</span> <span class="n">op</span><span class="p">:</span>
+            <span class="n">num_char</span> <span class="o">=</span> <span class="n">op</span><span class="p">[</span><span class="s2">&quot;retain&quot;</span><span class="p">]</span>
+
+            <span class="n">retain_doc</span> <span class="o">=</span> <span class="n">original_doc</span><span class="p">[:</span><span class="n">num_char</span><span class="p">]</span>
+            <span class="n">retain_mask</span> <span class="o">=</span> <span class="n">original_mask</span><span class="p">[:</span><span class="n">num_char</span><span class="p">]</span>
+
+            <span class="n">original_doc</span> <span class="o">=</span> <span class="n">original_doc</span><span class="p">[</span><span class="n">num_char</span><span class="p">:]</span>
+            <span class="n">original_mask</span> <span class="o">=</span> <span class="n">original_mask</span><span class="p">[</span><span class="n">num_char</span><span class="p">:]</span>
+
+            <span class="n">new_doc</span> <span class="o">=</span> <span class="n">new_doc</span> <span class="o">+</span> <span class="n">retain_doc</span>
+            <span class="n">new_mask</span> <span class="o">=</span> <span class="n">new_mask</span> <span class="o">+</span> <span class="n">retain_mask</span>
+
+        <span class="c1"># Handle insert operation</span>
+        <span class="k">elif</span> <span class="s2">&quot;insert&quot;</span> <span class="ow">in</span> <span class="n">op</span><span class="p">:</span>
+            <span class="n">insert_doc</span> <span class="o">=</span> <span class="n">op</span><span class="p">[</span><span class="s2">&quot;insert&quot;</span><span class="p">]</span>
+
+            <span class="n">insert_mask</span> <span class="o">=</span> <span class="s2">&quot;U&quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">insert_doc</span><span class="p">)</span>  <span class="c1"># User</span>
+            <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;api&quot;</span><span class="p">:</span>
+                <span class="n">insert_mask</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">insert_doc</span><span class="p">)</span>  <span class="c1"># API</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">insert_doc</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">if</span> <span class="s2">&quot;image&quot;</span> <span class="ow">in</span> <span class="n">insert_doc</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Skipping invalid object insertion (image)&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Ignore invalid insertions:&quot;</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span>
+                    <span class="c1"># Ignore other invalid insertions</span>
+                    <span class="c1"># Debug if necessary</span>
+                    <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_doc</span> <span class="o">=</span> <span class="n">new_doc</span> <span class="o">+</span> <span class="n">insert_doc</span>
+                <span class="n">new_mask</span> <span class="o">=</span> <span class="n">new_mask</span> <span class="o">+</span> <span class="n">insert_mask</span>
+
+        <span class="c1"># Handle delete operation</span>
+        <span class="k">elif</span> <span class="s2">&quot;delete&quot;</span> <span class="ow">in</span> <span class="n">op</span><span class="p">:</span>
+            <span class="n">num_char</span> <span class="o">=</span> <span class="n">op</span><span class="p">[</span><span class="s2">&quot;delete&quot;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">original_doc</span><span class="p">:</span>
+                <span class="n">original_doc</span> <span class="o">=</span> <span class="n">original_doc</span><span class="p">[</span><span class="n">num_char</span><span class="p">:]</span>
+                <span class="n">original_mask</span> <span class="o">=</span> <span class="n">original_mask</span><span class="p">[</span><span class="n">num_char</span><span class="p">:]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_doc</span> <span class="o">=</span> <span class="n">new_doc</span><span class="p">[:</span><span class="o">-</span><span class="n">num_char</span><span class="p">]</span>
+                <span class="n">new_mask</span> <span class="o">=</span> <span class="n">new_mask</span><span class="p">[:</span><span class="o">-</span><span class="n">num_char</span><span class="p">]</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Ignore other operations</span>
+            <span class="c1"># Debug if necessary</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Ignore other operations:&quot;</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span>
+            <span class="k">pass</span>
+
+    <span class="n">final_doc</span> <span class="o">=</span> <span class="n">new_doc</span> <span class="o">+</span> <span class="n">original_doc</span>
+    <span class="n">final_mask</span> <span class="o">=</span> <span class="n">new_mask</span> <span class="o">+</span> <span class="n">original_mask</span>
+    <span class="k">return</span> <span class="n">final_doc</span><span class="p">,</span> <span class="n">final_mask</span></div>
+
+
+<div class="viewcode-block" id="get_completion"><a class="viewcode-back" href="../../streams.html#streams.utils.get_completion">[docs]</a><span class="k">def</span> <span class="nf">get_completion</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">mask</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Removes prompt from text.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        text (str): Text generated so far.</span>
+<span class="sd">        mask (str): Mask describing prompt or completion.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: text without prompt.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s2">&quot;P&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mask</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">text</span>
+    <span class="n">end_index</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">text</span><span class="p">[</span><span class="n">end_index</span><span class="p">:]</span></div>
+
+
+<div class="viewcode-block" id="get_prompts_and_completions"><a class="viewcode-back" href="../../streams.html#streams.utils.get_prompts_and_completions">[docs]</a><span class="k">def</span> <span class="nf">get_prompts_and_completions</span><span class="p">(</span>
+    <span class="n">events</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">drop_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;DROP_KEYWORD&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;For a session, returns a dataframe of prompts and completions.</span>
+<span class="sd">    Every row in the dataframe represents a snapshot of the session</span>
+<span class="sd">    taken every stride steps.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        events (list): List of quilljs events for a session.</span>
+<span class="sd">        session_id (str): Session ID.</span>
+<span class="sd">        drop_keyword (str, optional): Keyword that represents drop. Defaults to</span>
+<span class="sd">            &quot;DROP_KEYWORD&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: Prompts and completions for a session.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">prompt</span> <span class="o">=</span> <span class="n">events</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;currentDoc&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="n">text</span> <span class="o">=</span> <span class="n">prompt</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="s2">&quot;P&quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>  <span class="c1"># Prompt</span>
+
+    <span class="n">texts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">timestamps</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;ops&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">event</span><span class="p">[</span><span class="s2">&quot;textDelta&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="s2">&quot;textDelta&quot;</span><span class="p">][</span><span class="s2">&quot;ops&quot;</span><span class="p">]</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="s2">&quot;eventSource&quot;</span><span class="p">]</span>
+        <span class="n">text</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">apply_ops</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">ops</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+
+        <span class="c1"># If the last char of text is a space, add it to texts</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">text</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot; &quot;</span><span class="p">:</span>
+            <span class="n">current_completion</span> <span class="o">=</span> <span class="n">get_completion</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">current_completion</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;[a-zA-Z]&quot;</span><span class="p">,</span> <span class="n">current_completion</span><span class="p">):</span>
+                <span class="n">texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">current_completion</span><span class="p">)</span>
+                <span class="n">timestamps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="s2">&quot;eventTimestamp&quot;</span><span class="p">])</span>
+
+    <span class="n">final_completion</span> <span class="o">=</span> <span class="n">get_completion</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;session_id&quot;</span><span class="p">:</span> <span class="n">session_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">timestamps</span><span class="p">,</span>
+            <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="n">prompt</span><span class="p">,</span>
+            <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="n">texts</span><span class="p">,</span>
+            <span class="s2">&quot;final&quot;</span><span class="p">:</span> <span class="n">final_completion</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="c1"># Filter duplicates</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;current&quot;</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Add metadata</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">],</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;ms&quot;</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s2">&quot;unix&quot;</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;next&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;current&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">subtract</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;next&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">drop_keyword</span>
+        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;current&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;next&quot;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">drop_keyword</span>
+        <span class="k">return</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;next&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;current&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;next&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">subtract</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+<div class="viewcode-block" id="adult_filter"><a class="viewcode-back" href="../../streams.html#streams.utils.adult_filter">[docs]</a><span class="k">def</span> <span class="nf">adult_filter</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Mimic the filters in place for Adult data.</span>
+<span class="sd">    Adult documentation notes: Extraction was done by Barry Becker from</span>
+<span class="sd">    the 1994 Census database. A set of reasonably clean records was extracted</span>
+<span class="sd">    using the following conditions:</span>
+<span class="sd">    ((AAGE&gt;16) &amp;&amp; (AGI&gt;100) &amp;&amp; (AFNLWGT&gt;1)&amp;&amp; (HRSWK&gt;0))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">data</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;AGEP&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">16</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;PINCP&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;WKHP&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;PWGTP&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+<div class="viewcode-block" id="read_s3_config"><a class="viewcode-back" href="../../streams.html#streams.utils.read_s3_config">[docs]</a><span class="k">def</span> <span class="nf">read_s3_config</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Reads a config file from S3.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str): Name of config file.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: Config file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;https://ocl-benchmarks.s3.us-west-1.amazonaws.com/configs/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.joblib&quot;</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">joblib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">streamscl</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Shreya Shankar.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+    </div>
+
+
+
+
+  </body>
+</html>

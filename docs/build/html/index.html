@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Introduction &#8212; streamscl 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <section id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">streamscl</span></code> is a Python package to generate streams of publicly available data. 9 static datasets (with real-world OOD or subpopulation data) are used to create <code class="docutils literal notranslate"><span class="pre">streamscl</span></code>, a benchmark of 9 data streams that cover regression, classification, and generation tasks across many modalities: images, text, speech, time series, tabular data, and human-agent interactions.</p>
+<section id="motivation">
+<h2>Motivation<a class="headerlink" href="#motivation" title="Permalink to this headline">¶</a></h2>
+<p>ML practitioners in the wild often face a constant stream of data with an ever-changing distribution. To maintain performance, they must adapt to the data stream, a problem called online continual learning (OCL). Despite its practical relevance, existing benchmarks for OCL suffer from many issues: (1) distribution shifts are abrupt and known beforehand, while in the real world, they can also be gradual and arrive without forewarning; (2) shifts are synthetic and unrealistic (e.g., pixel permutations); (3) benchmarks only cover a single modality and task type (typically few-class image classification). To address these issues, <strong>we introduce a new multimodal benchmark for OCL called ``streamscl``.</strong> Given the scarcity of publicly available data streams, and the potential infrequency of adverse shifts that are worth simulating, we first propose a method to controllably generate streaming data from static data. Then taking static datasets containing real out-of-domain data (e.g., IWildCam) or multiple subpopulations (e.g., CivilComments), we apply this approach across a variety of modalities – images, text, speech, time series, tabular data, and human-agent interactions – to create <code class="docutils literal notranslate"><span class="pre">streamscl</span></code>.</p>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p>The following datasets are supported:</p>
+<ul class="simple">
+<li><p>iwildcam</p></li>
+<li><p>civilcomments</p></li>
+<li><p>poverty</p></li>
+<li><p>jeopardy</p></li>
+<li><p>airquality</p></li>
+<li><p>zillow</p></li>
+<li><p>coauthor</p></li>
+<li><p>census</p></li>
+<li><p>nuimages</p></li>
+</ul>
+<section id="data-storage">
+<h3>Data storage<a class="headerlink" href="#data-storage" title="Permalink to this headline">¶</a></h3>
+<p>The default data storage folder is <code class="docutils literal notranslate"><span class="pre">~/.streams_data</span></code>. You can override it by setting the environment variables <code class="docutils literal notranslate"><span class="pre">DOWNLOAD_HOME</span></code> and <code class="docutils literal notranslate"><span class="pre">DOWNLOAD_PREFIX</span></code>. If you do not already have the data downloaded, the <code class="docutils literal notranslate"><span class="pre">STREAMSDataset</span></code> utilities will do so for you – with the exception of <code class="docutils literal notranslate"><span class="pre">nuimages</span></code>, which requires manual download.</p>
+<p>To download <code class="docutils literal notranslate"><span class="pre">nuimages</span></code>, manually download the Metadata and Samples from <a class="reference external" href="https://www.nuscenes.org/nuimages#download">NuImages</a>. Extract them to a folder named <code class="docutils literal notranslate"><span class="pre">nuimages</span></code> in the <code class="docutils literal notranslate"><span class="pre">~/.streams_data</span></code> or <code class="docutils literal notranslate"><span class="pre">DOWNLOAD_HOME</span></code> folder. Make sure the directory structure of <code class="docutils literal notranslate"><span class="pre">nuimages</span></code> looks like:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">nuimages/</span></code></dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">samples/</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v1.0-test/</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v1.0-train/</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v1.0-val/</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="dataset-configuration">
+<h3>Dataset configuration<a class="headerlink" href="#dataset-configuration" title="Permalink to this headline">¶</a></h3>
+<p>To use the <code class="docutils literal notranslate"><span class="pre">STREAMSDataset</span></code> class, you can either pass in your own stream configuration parameters or use a preset stream configuration. To use the preset configuration, you can do the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">streams</span> <span class="kn">import</span> <span class="n">STREAMSDataset</span>
+
+<span class="n">dataset_name</span> <span class="o">=</span> <span class="s2">&quot;iwildcam&quot;</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">STREAMSDataset</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To pass in your own stream configuration parameters, you can do the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">streams</span> <span class="kn">import</span> <span class="n">STREAMSDataset</span>
+
+<span class="n">dataset_name</span> <span class="o">=</span> <span class="s2">&quot;iwildcam&quot;</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">STREAMSDataset</span><span class="p">(</span>
+   <span class="n">dataset_name</span><span class="p">,</span>
+   <span class="n">T</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+   <span class="n">gamma</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+   <span class="n">num_peaks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+   <span class="n">start_max</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+   <span class="n">duration</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+   <span class="n">log_step</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+   <span class="n">inference_window</span><span class="o">=</span><span class="mi">1</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>See parameter descriptions in <a class="reference internal" href="streams.html#streams.utils.create_logits" title="streams.utils.create_logits"><code class="xref py py-func docutils literal notranslate"><span class="pre">streams.utils.create_logits()</span></code></a> for more details. The <code class="docutils literal notranslate"><span class="pre">inference_window</span></code> parameter tells how many steps you want to be able to “look ahead” in the stream as a “test set” to evaluate on.</p>
+</section>
+<section id="dataset-iteration">
+<h3>Dataset iteration<a class="headerlink" href="#dataset-iteration" title="Permalink to this headline">¶</a></h3>
+<p>Any instance of the <code class="docutils literal notranslate"><span class="pre">STREAMSDataset</span></code> class has a <code class="docutils literal notranslate"><span class="pre">step</span></code> property that tells you what timestep you are in the stream. Initially, the <code class="docutils literal notranslate"><span class="pre">step</span></code> is 0. To iterate through the dataset, you can call the following methods:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">streams</span> <span class="kn">import</span> <span class="n">STREAMSDataset</span>
+
+<span class="n">ds</span> <span class="o">=</span> <span class="n">STREAMSDataset</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="s2">&quot;iwildcam&quot;</span><span class="p">)</span>
+
+<span class="n">train_data</span><span class="p">,</span> <span class="n">test_data</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">include_test</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">train_data</span><span class="p">):</span>
+   <span class="nb">print</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="c1"># Or load the data into Pytorch data loaders</span>
+<span class="n">train_dl</span><span class="p">,</span> <span class="n">test_dl</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">get_loaders</span><span class="p">(</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">include_test</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Advance time step in the stream</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">advance</span><span class="p">(</span><span class="n">step_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># Reset to the beginning</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">STREAMSDataset</span></code> class also has some helper methods:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">streams</span> <span class="kn">import</span> <span class="n">STREAMSDataset</span>
+
+<span class="n">ds</span> <span class="o">=</span> <span class="n">STREAMSDataset</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="s2">&quot;iwildcam&quot;</span><span class="p">)</span>
+
+<span class="c1"># Visualize signals for how likely domain values are to occur</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">domain_type_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">domain_value_indices</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+
+<span class="c1"># Get data from specific points in the stream</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">step_indices</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="n">future_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Get length of dataset</span>
+<span class="nb">len</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Check out <a class="reference internal" href="streams.html#streams.STREAMSDataset" title="streams.STREAMSDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">streams.STREAMSDataset</span></code></a> for more details.</p>
+</section>
+<section id="avalanche-integration">
+<h3>Avalanche Integration<a class="headerlink" href="#avalanche-integration" title="Permalink to this headline">¶</a></h3>
+<p>TODO(shreyashankar)</p>
+</section>
+</section>
+<section id="training-example">
+<h2>Training Example<a class="headerlink" href="#training-example" title="Permalink to this headline">¶</a></h2>
+<p>TODO(shreyashankar)</p>
+</section>
+<section id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Permalink to this headline">¶</a></h2>
+<p>TODO(shreyashankar)</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">streamscl</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Shreya Shankar.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+
+
+
+  </body>
+</html>

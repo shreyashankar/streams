@@ -1,0 +1,549 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>streams.streams_dataset &#8212; streamscl 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+
+
+          <div class="body" role="main">
+
+  <h1>Source code for streams.streams_dataset</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">import</span> <span class="nn">avalanche</span>
+<span class="kn">import</span> <span class="nn">joblib</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">from</span> <span class="nn">streams.create_domain_matrices</span> <span class="kn">import</span> <span class="n">name_to_func</span>
+<span class="kn">from</span> <span class="nn">streams.utils</span> <span class="kn">import</span> <span class="n">create_logits</span><span class="p">,</span> <span class="n">read_s3_config</span><span class="p">,</span> <span class="n">softmax</span>
+
+<span class="n">supported_datasets</span> <span class="o">=</span> <span class="n">name_to_func</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="STREAMSDataset"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset">[docs]</a><span class="k">class</span> <span class="nc">STREAMSDataset</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">T</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">inference_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+        <span class="n">use_time_ordering</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">force_download</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">n_t</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Constructor for STREAMSDataset.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of the dataset. Must be in our supported datasets.</span>
+<span class="sd">            T (int, optional): How many time steps in the stream. Defaults to</span>
+<span class="sd">                length of dataset.</span>
+<span class="sd">            inference_window (int, optional): Number of timesteps after current</span>
+<span class="sd">                time step that can be used for &quot;testing.&quot; Defaults to 1.</span>
+<span class="sd">            seed (int, optional): Random seed. Defaults to 42.</span>
+<span class="sd">            use_time_ordering (bool, optional): Whether to use time ordering.</span>
+<span class="sd">            force_download (bool, optional): Whether to forcibly redownload the</span>
+<span class="sd">                dataset. Defaults to False.</span>
+<span class="sd">            n_t (typing.List[int], optional): T-sized list with number of</span>
+<span class="sd">                examples to be sampled for each timestep.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If dataset is not in supported datasets.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_datasets</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dataset </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not supported&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>  <span class="c1"># TODO(shreyashankar): make properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_inference_window</span> <span class="o">=</span> <span class="n">inference_window</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating dataset </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">domain_matrices</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time_periods</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time_ordering</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">name_to_func</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">](</span><span class="n">force_download</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_matrices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_T</span> <span class="o">=</span> <span class="n">T</span> <span class="k">if</span> <span class="n">T</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;More timesteps than examples in dataset&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_periods</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Create probabilities</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">use_time_ordering</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;sampling_logits&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sampling_logits</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;sampling_logits&quot;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;signals&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Creating logits&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sampling_logits</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="n">create_logits</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">domain_matrices</span><span class="p">,</span>
+                    <span class="n">T</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span> <span class="k">if</span> <span class="n">T</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">T</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Create samples</span>
+        <span class="k">if</span> <span class="s2">&quot;sample_history&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;sample_history&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_sample_without_replacement</span><span class="p">(</span><span class="n">n_t</span><span class="o">=</span><span class="n">n_t</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">use_time_ordering</span>
+                <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_order</span><span class="p">(</span><span class="n">n_t</span><span class="o">=</span><span class="n">n_t</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_examples</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span><span class="p">]</span>
+        <span class="p">)</span>  <span class="c1"># could be less than self._n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">oracle_training_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_oracle_training_data</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_sample_oracle_training_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train_to_test_ratio</span><span class="o">=</span><span class="mf">2.0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sample the oracle training data for each timestep from all the data</span>
+<span class="sd">        excluding that which has been sampled for the respective timestep</span>
+<span class="sd">        (i.e., D \ D_t). Use the same probability distribution as that which was</span>
+<span class="sd">        used to sample D_t.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            train_to_test_ratio: ratio of oracle training data to test data at</span>
+<span class="sd">                each timestep</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The oracle training data at each timestep, as a list of indices.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">oracle_training_data</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_T</span><span class="p">):</span>
+            <span class="n">logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_logits</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">logits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span><span class="p">[</span><span class="n">t</span><span class="p">]]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+            <span class="n">probs</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">logits</span><span class="p">)</span>
+
+            <span class="n">oracle_training_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">,</span>
+                    <span class="n">p</span><span class="o">=</span><span class="n">probs</span><span class="p">,</span>
+                    <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">size</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">,</span>
+                        <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span><span class="p">[</span><span class="n">t</span><span class="p">])</span> <span class="o">*</span> <span class="n">train_to_test_ratio</span><span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">oracle_training_data</span>
+
+<div class="viewcode-block" id="STREAMSDataset.get_config"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.get_config">[docs]</a>    <span class="k">def</span> <span class="nf">get_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Gets configuraton of the stream.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Config serialized.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+            <span class="s2">&quot;T&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span><span class="p">,</span>
+            <span class="s2">&quot;inference_window&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference_window</span><span class="p">,</span>
+            <span class="s2">&quot;seed&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span><span class="p">,</span>
+            <span class="s2">&quot;use_time_ordering&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_ordering</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;sampling_logits&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_logits</span><span class="p">,</span>
+            <span class="s2">&quot;signals&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">,</span>
+            <span class="s2">&quot;sample_history&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.from_config"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.from_config">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_config</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;STREAMSDataset&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Loads dataset from config file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Path to config file OR name of</span>
+<span class="sd">                dataset.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            STREAMSDataset: Dataset loaded from config file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">supported_datasets</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">STREAMSDataset</span><span class="p">(</span><span class="o">**</span><span class="n">read_s3_config</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">STREAMSDataset</span><span class="p">(</span><span class="o">**</span><span class="n">joblib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">name</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.save_config"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.save_config">[docs]</a>    <span class="k">def</span> <span class="nf">save_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Saves configuration of the stream.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path (str): Path to save configuration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">path</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">joblib</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_config</span><span class="p">(),</span> <span class="n">f</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_time_order</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">n_t</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;If user specifies a strict time ordering, then create the stream in</span>
+<span class="sd">        this fashion.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n_t (optional): T-sized list with number of examples to be sampled</span>
+<span class="sd">                for each timestep</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of samples for timesteps 1 .. T.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_ordering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No time ordering for this dataset.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">n_t</span> <span class="o">==</span> <span class="p">[]:</span>
+            <span class="n">n_t</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span><span class="p">)]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span>
+            <span class="n">n_t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">-</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n_t</span><span class="p">)</span>
+
+        <span class="n">sample_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">seen</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_T</span><span class="p">):</span>
+            <span class="n">goal</span> <span class="o">=</span> <span class="n">n_t</span><span class="p">[</span><span class="n">t</span><span class="p">]</span>
+            <span class="n">sample</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_ordering</span><span class="p">[</span><span class="n">seen</span> <span class="p">:</span> <span class="n">seen</span> <span class="o">+</span> <span class="n">goal</span><span class="p">]</span>
+            <span class="n">sample_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+            <span class="n">seen</span> <span class="o">+=</span> <span class="n">goal</span>
+
+        <span class="k">return</span> <span class="n">sample_history</span>
+
+    <span class="k">def</span> <span class="nf">_sample_without_replacement</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">n_t</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;For each 1..T time steps, draw a sample based on the corresponding</span>
+<span class="sd">        probability distribution (without replacement). By default, any example</span>
+<span class="sd">        can appear in any timestep. However, if time periods are specified</span>
+<span class="sd">        (where lower-indexed time periods must appear earlier), then restrict</span>
+<span class="sd">        when an example can be sampled (e.g., all those appearing in time</span>
+<span class="sd">        period 0 must be sample before any in time period 1).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            n_t (optional): T-sized list with number of examples to be sampled</span>
+<span class="sd">                for each timestep</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of samples for timesteps 1 .. T.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">n_t</span> <span class="o">==</span> <span class="p">[]:</span>
+            <span class="n">n_t</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span><span class="p">)]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span>
+            <span class="n">n_t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">-</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n_t</span><span class="p">)</span>
+
+        <span class="n">time_periods</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time_periods</span>
+            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_periods</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">remaining</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">)</span>
+        <span class="n">current_time_period</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">sample_history</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_T</span><span class="p">):</span>
+            <span class="n">goal</span> <span class="o">=</span> <span class="n">n_t</span><span class="p">[</span><span class="n">t</span><span class="p">]</span>
+            <span class="n">sample</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">goal</span><span class="p">:</span>
+                <span class="n">eligible</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span>
+                    <span class="n">remaining</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">time_periods</span> <span class="o">&lt;=</span> <span class="n">current_time_period</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">eligible</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_logits</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="n">logits</span><span class="p">[</span><span class="o">~</span><span class="n">eligible</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                    <span class="n">probs</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">logits</span><span class="p">)</span>
+
+                    <span class="n">sample</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">,</span>
+                            <span class="n">p</span><span class="o">=</span><span class="n">probs</span><span class="p">,</span>
+                            <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                            <span class="n">size</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">eligible</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">goal</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">sample</span><span class="p">)),</span>
+                        <span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                    <span class="p">)</span>
+
+                    <span class="n">remaining</span><span class="p">[</span><span class="n">sample</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">goal</span><span class="p">:</span>
+                    <span class="n">current_time_period</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">if</span> <span class="n">current_time_period</span> <span class="o">&gt;</span> <span class="n">time_periods</span><span class="o">.</span><span class="n">max</span><span class="p">():</span>
+                        <span class="k">break</span>
+
+            <span class="n">sample_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sample_history</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">T</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">seed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span>
+
+<div class="viewcode-block" id="STREAMSDataset.reset"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Sets current time step back to 0.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_step</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.get_data"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.get_data">[docs]</a>    <span class="k">def</span> <span class="nf">get_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">include_test</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Returns data in the current step.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            include_test (bool, optional): Whether to include inference data.</span>
+<span class="sd">                Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            typing.Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:</span>
+<span class="sd">                &quot;Train&quot; and test datasets.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">train_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">include_test</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="kc">None</span>
+
+        <span class="c1"># Include test data</span>
+        <span class="n">test_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span>
+                <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference_window</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="n">future_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">test_dataset</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.get_loaders"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.get_loaders">[docs]</a>    <span class="k">def</span> <span class="nf">get_loaders</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">include_test</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span>
+    <span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Dataloader wrapper around get_data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            batch_size (int, optional): Defaults to 64.</span>
+<span class="sd">            shuffle (bool, optional): Defaults to True.</span>
+<span class="sd">            include_test (bool, optional): Whether to include inference data.</span>
+<span class="sd">                Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            typing.Tuple[ torch.utils.data.DataLoader,</span>
+<span class="sd">                torch.utils.data.DataLoader ]: Dataloaders wrapped around the</span>
+<span class="sd">                datasets from get_data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">train_dataset</span><span class="p">,</span> <span class="n">test_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">include_test</span><span class="o">=</span><span class="n">include_test</span><span class="p">)</span>
+        <span class="n">train_dl</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span>
+            <span class="n">train_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">include_test</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">train_dl</span><span class="p">,</span> <span class="kc">None</span>
+
+        <span class="n">test_dl</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span>
+            <span class="n">test_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">train_dl</span><span class="p">,</span> <span class="n">test_dl</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.get_benchmark"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.get_benchmark">[docs]</a>    <span class="k">def</span> <span class="nf">get_benchmark</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">avalanche</span><span class="o">.</span><span class="n">benchmarks</span><span class="o">.</span><span class="n">scenarios</span><span class="o">.</span><span class="n">new_instances</span><span class="o">.</span><span class="n">ni_scenario</span><span class="o">.</span><span class="n">NIScenario</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Gets data until current step as avalanche benchmark.&quot;&quot;&quot;</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">test_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">include_test</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">exp_assignment</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">))]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">benchmark</span> <span class="o">=</span> <span class="n">avalanche</span><span class="o">.</span><span class="n">benchmarks</span><span class="o">.</span><span class="n">generators</span><span class="o">.</span><span class="n">ni_benchmark</span><span class="p">(</span>
+                <span class="n">train_dataset</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span>
+                <span class="n">test_dataset</span><span class="o">=</span><span class="n">test_dataset</span><span class="p">,</span>
+                <span class="n">n_experiences</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">,</span>
+                <span class="n">fixed_exp_assignment</span><span class="o">=</span><span class="n">exp_assignment</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">benchmark</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Only classification tasks are supported by Avalanche.&quot;</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.advance"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.advance">[docs]</a>    <span class="k">def</span> <span class="nf">advance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Advances the current timestep by step_size.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            step_size (int, optional): Defaults to 1.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If step_size is negative or outside dataset length.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">step_size</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;step_size must be at least 1&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_step</span> <span class="o">+</span> <span class="n">step_size</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_T</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inference_window</span>
+        <span class="p">):</span>  <span class="c1"># last timestep can&#39;t be used for training</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;reached end of data stream&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_step</span> <span class="o">+=</span> <span class="n">step_size</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Advanced </span><span class="si">{</span><span class="n">step_size</span><span class="si">}</span><span class="s2"> steps.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.visualize"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.visualize">[docs]</a>    <span class="k">def</span> <span class="nf">visualize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">domain_type_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">domain_value_indices</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns plot of signals for domain index and values.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            domain_type_index (int, optional):Defaults to 0.</span>
+<span class="sd">            domain_value_indices (list, optional): Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">domain_value_indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">domain_value_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain_matrices</span><span class="p">[</span><span class="n">domain_type_index</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">domain_value_indices</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="p">[</span><span class="n">t</span><span class="p">][</span><span class="n">domain_type_index</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">x</span><span class="p">]</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Value </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Domain </span><span class="si">{</span><span class="n">domain_type_index</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;figure.figsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">1.05</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">borderaxespad</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="STREAMSDataset.get"><a class="viewcode-back" href="../../streams.html#streams.streams_dataset.STREAMSDataset.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">step_indices</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">future_ok</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Gets data for given indices. Reads into permutation and then</span>
+<span class="sd">        accesses the data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            step_indices (typing.List[int]): Indices to get data for.</span>
+<span class="sd">            future_ok (bool, optional): Whether it&#39;s ok to get data after</span>
+<span class="sd">                current step. Defaults to False.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If indices are beyond current step.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.utils.data.Dataset</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">future_ok</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">step_indices</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">index</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Cannot sample index </span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2"> from future when&quot;</span>
+                        <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot; the current step is </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="p">)</span>
+
+        <span class="n">data_indices</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">i</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">step_indices</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span><span class="p">[</span><span class="n">t</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Subset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span> <span class="n">data_indices</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Gets length of dataset.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_history</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">step_indices</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Accesses data for given indices. Wraps get.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">step_indices</span><span class="p">,</span> <span class="n">future_ok</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">streamscl</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Shreya Shankar.
+
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+
+    </div>
+
+
+
+
+  </body>
+</html>
