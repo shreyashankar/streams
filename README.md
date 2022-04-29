@@ -1,6 +1,7 @@
 # STREAMS: A Benchmark of Naturalistic Streaming Data for Online Continual Learning
 
 [![STREAMS](https://github.com/shreyashankar/streams/actions/workflows/python-package.yml/badge.svg)](https://github.com/shreyashankar/streams/actions/workflows/python-package.yml/badge.svg)
+[![Documentation Status](https://readthedocs.org/projects/streamscl/badge/?version=latest)](https://streamscl.readthedocs.io/en/latest/?badge=latest)
 
 TODO: fill out :)
 
